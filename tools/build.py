@@ -242,9 +242,9 @@ def main():
     target.write_bytes(ipk)
     print("%s: %.1f MB, %.1f MB installed" % (target, len(ipk) / 1e6, size / 1e6))
     manifest, repo = repository(version, target.name, ipk)
-    (out / (APP + ".manifest.json")).write_text(json.dumps(manifest, indent=2) + "\n", newline="\n")
+    (out / (APP + ".manifest.json")).write_bytes((json.dumps(manifest, indent=2) + "\n").encode())
     (ROOT / "docs").mkdir(exist_ok=True)
-    (ROOT / "docs/apps.json").write_text(json.dumps(repo, indent=2) + "\n", newline="\n")
+    (ROOT / "docs/apps.json").write_bytes((json.dumps(repo, indent=2) + "\n").encode())
     if args.sources:
         (out / "sources").mkdir(exist_ok=True)
         for name in LIBRARY_SOURCES:
