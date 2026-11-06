@@ -9,17 +9,27 @@
   <main>
     <h1>Local Voice</h1>
     <p class="lead">Speech recognition that runs on this TV. Nothing you say leaves the TV.</p>
-    <button id="toggle" disabled>Checking…</button>
+    <div class="row">
+      <button id="toggle" disabled>Checking…</button>
+      <button id="mode">Microphone button</button>
+    </div>
     <p id="status" role="status"></p>
-    <p>Try it here: hold the remote's microphone button, speak and let go.</p>
+
+    <h2>Try it</h2>
+    <p>Hold the remote's microphone button, speak and let go.</p>
     <div id="meter"><i id="fill"></i><b id="mark"></b></div>
+    <div id="test" class="empty">Your words appear here</div>
+
+    <h2>Microphone level</h2>
     <div class="row">
       <button id="tune">Set up microphone</button>
-      <button id="speech">Speech level</button>
+      <button id="less" class="step" aria-label="Lower the speech level">&minus;</button>
+      <span id="speech">Speech level</span>
+      <button id="more" class="step" aria-label="Raise the speech level">+</button>
     </div>
-    <p id="tuneNote" class="note">Set up listens to a test phrase and picks a speech level. Or select the speech level and press left or right.</p>
-    <div id="test" class="empty">Your words appear here</div>
-    <p class="note">It also works in other text boxes, in YouTube, and with an app's own microphone button.</p>
+    <p id="tuneNote" class="note">Set up listens to a test phrase and picks a speech level. A lower level picks up a quieter voice.</p>
+
+    <p class="note">Voice also works in other text boxes, in YouTube, and with an app's own microphone button.</p>
   </main>
   <script src="level.js"></script>
   <script src="app.js"></script>

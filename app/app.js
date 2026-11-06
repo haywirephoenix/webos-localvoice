@@ -16,9 +16,14 @@
   var speech = document.getElementById('speech');
   var note = document.getElementById('tuneNote');
   var mark = document.getElementById('mark');
-  var buttons = [button, tune, speech];
+  var mode = document.getElementById('mode');
+  var less = document.getElementById('less');
+  var more = document.getElementById('more');
+  var rows = [[button, mode], [tune, less, more]];   // as they are laid out, for the arrow keys
+  var MODES = ['hold', 'click', 'none'];
+  var MODE_NAMES = {none: 'None', hold: 'Hold', click: 'Click or Hold'};
   var TUNE_WAIT = 60000;   // as the service: an unused request to tune lapses
-  var state = null, busy = false, feed = null, speechLevel = 150, tuneEnds = 0;
+  var state = null, busy = false, feed = null, speechLevel = 150, tuneEnds = 0, modeNow = 'hold';
   // Older engines can collect a bridge while its call is in flight, so hold each until it answers.
   var bridges = [];
 
@@ -36,6 +41,15 @@
       done(answer, reply);
     };
     bridge.call(EXEC, JSON.stringify({command: 'sh ' + CTL + ' ' + command}));
+  }
+  function showMode(value) {
+    modeNow = value;
+    mode.textContent = 'Microphone button: ' + MODE_NAMES[value];
+  }
+  function nextMode() {
+    var next = MODES[(MODES.indexOf(modeNow) + 1) % MODES.length];
+    showMode(next);
+    ctl('button ' + next, function () {});
   }
   function showSpeech(value) {
     speechLevel = value;
@@ -68,6 +82,7 @@
     state = a;
     watchLevel(a && a.running);
     if (a && a.speech) showSpeech(a.speech);
+    if (a && MODES.indexOf(a.button) >= 0) showMode(a.button);
     busy = false;
     button.disabled = false;
     status.className = '';
@@ -90,7 +105,7 @@
       status.textContent = a.running ? 'On. LG\'s voice service is replaced until you turn this off.' :
         a.enabled ? 'Starting…' : 'Off. LG\'s voice service is in place.';
     }
-    if (buttons.indexOf(document.activeElement) < 0) button.focus();
+    if (!place()) button.focus();
   }
   function run(command) {
     busy = true;
@@ -109,6 +124,21 @@
       busy = false;
       if (!same) show(a);
     });
+  }
+  // Where the focus is, as [row, column], if on a button.
+  function place() {
+    for (var r = 0; r < rows.length; r++) {
+      var c = rows[r].indexOf(document.activeElement);
+      if (c >= 0) return [r, c];
+    }
+    return null;
+  }
+  // Left and right stay in a row and up and down change row, stopping at the edges.
+  function move(rowBy, columnBy) {
+    var at = place();
+    if (!at) return button.focus();
+    var row = rows[Math.max(0, Math.min(rows.length - 1, at[0] + rowBy))];
+    row[Math.max(0, Math.min(row.length - 1, at[1] + columnBy))].focus();
   }
   // Steps of a tenth, to the nearest ten, within what the service accepts.
   function nudge(direction) {
@@ -130,6 +160,9 @@
   button.addEventListener('click', function () {
     run(state && state.enabled ? 'disable' : state ? 'enable' : 'status');
   });
+  mode.addEventListener('click', nextMode);
+  less.addEventListener('click', function () { nudge(-1); });
+  more.addEventListener('click', function () { nudge(1); });
   tune.addEventListener('click', function () {
     tuneEnds = Date.now() + TUNE_WAIT;
     note.textContent = 'Hold the microphone button, wait two seconds, say a sentence in your normal voice, then let go.';
@@ -137,11 +170,11 @@
   });
   document.addEventListener('keydown', function (e) {
     if (e.keyCode === 461 || e.keyCode === 27) window.close();
-    else if (e.keyCode === 38 || e.keyCode === 40) {
-      var at = buttons.indexOf(document.activeElement);
-      buttons[(at + (e.keyCode === 40 ? 1 : buttons.length - 1)) % buttons.length].focus();
-    } else if ((e.keyCode === 37 || e.keyCode === 39) && document.activeElement === speech) nudge(e.keyCode - 38);
-    else if (buttons.indexOf(document.activeElement) < 0) button.focus();
+    else if (e.keyCode === 37) move(0, -1);
+    else if (e.keyCode === 39) move(0, 1);
+    else if (e.keyCode === 38) move(-1, 0);
+    else if (e.keyCode === 40) move(1, 0);
+    else if (!place()) button.focus();
   });
   document.addEventListener('visibilitychange', refresh);
   document.addEventListener('webOSRelaunch', refresh);

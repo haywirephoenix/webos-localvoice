@@ -19,6 +19,7 @@ var APP = path.dirname(__dirname), RUNTIME = path.join(APP, 'runtime');
 var RUN = '/tmp/localvoice', LOG = RUN + '/log.txt';
 var CONF = '/var/lib/webosbrew/localvoice.conf';
 var SPEECH = '/var/lib/webosbrew/localvoice.speech';  // the speech level, if set
+var BUTTON = '/var/lib/webosbrew/localvoice.button';  // none or click, if not the default of hold
 var TUNE = RUN + '/tune', TUNED = RUN + '/tuned';    // asks for the next phrase to set it, and the outcome
 var TUNE_WAIT = 60000;
 var APP_ID = 'com.haywire.localvoice';
@@ -33,7 +34,8 @@ var YOUTUBE_SEARCH = 'launch=voice&vq=';
 var HEARD = RUN + '/heard';
 var HEARD_KEEP = 30000;
 var TYPED = RUN + '/typed';  // the same, for the box on this app's own page
-var TAP = 500;              // a shorter press listens until the speaker stops, a longer one until release
+var TAP = 500;              // with click or hold, a shorter press listens until the speaker stops
+var HOLD_WAIT = 250;        // with hold, a press this short never opens the microphone
 var FIELD_RETRY = 10000;
 var IME_WAIT = 3000;
 var ENTER_WAIT = 150;       // lets the field take the text before Enter submits it
@@ -116,7 +118,7 @@ function blocked() {
 
 // --- the recogniser ------------------------------------------------------------------------
 
-var engine = {child: null, ready: false, waiting: null, timer: null, fails: 0, started: 0};
+var engine = {child: null, ready: false, waiting: null, next: null, timer: null, fails: 0, started: 0};
 
 function startEngine() {
   var lib = path.join(RUNTIME, 'lib');
@@ -159,13 +161,21 @@ function startEngine() {
   });
 }
 function decoded(err, text) {
-  var cb = engine.waiting;
-  engine.waiting = null;
+  var cb = engine.waiting, next = engine.next;
+  engine.waiting = engine.next = null;
   clearTimeout(engine.timer);
   if (cb) cb(err, text);
+  if (next) decode(next.pcm, next.cb);
 }
+// The engine cannot drop a phrase it has begun, so one that was cancelled finishes unheard and a
+// new one waits for it.
 function decode(pcm, cb) {
-  if (!engine.ready || engine.waiting) return cb(new Error('engine busy'));
+  if (!engine.ready) return cb(new Error('engine busy'));
+  if (engine.waiting) {
+    if (engine.next) engine.next.cb(new Error('replaced'));
+    engine.next = {pcm: pcm, cb: cb};
+    return;
+  }
   engine.waiting = cb;
   engine.timer = setTimeout(function () {
     if (engine.child) engine.child.kill();
@@ -179,7 +189,7 @@ function decode(pcm, cb) {
 // --- one phrase ----------------------------------------------------------------------------
 
 var handles = null, count = 0, current = null;
-var held = false, pressed = 0, field = false;
+var held = false, pressed = 0, holdTimer = null, field = false;
 var watcher = null;
 
 function speechLevel() {
@@ -435,21 +445,45 @@ function cancel(m) {
   if (current && current.state !== 'done' && (!ticket || ticket === current.ticket)) close(current, 'cancelled');
 }
 
-// The remote's button. Held, it listens until released. Tapped, it listens until the speaker stops.
+function buttonMode() {
+  try {
+    var mode = fs.readFileSync(BUTTON, 'utf8').trim();
+    if (mode === 'none' || mode === 'click') return mode;
+  } catch (e) {}
+  return 'hold';
+}
+// The remote's button. By default it listens only while held, so that a stray press does nothing.
+// With click or hold, a tap also listens, until the speaker stops. A press while a phrase is being
+// listened to or recognised cancels it, so nothing is typed, and if held it starts a new one.
+// With none it is ignored, and apps can still use their own microphone buttons.
+function startIfHeld() {
+  holdTimer = setTimeout(function () { if (held && !current) start(null); }, HOLD_WAIT);
+}
 function keyEvent(m) {
   var event = '';
   try { event = String(JSON.parse(m.payload()).event || ''); } catch (e) {}
-  log('mic button ' + event);
+  var mode = buttonMode();
+  log('mic button ' + event + ' (' + mode + ')');
+  if (mode === 'none') {
+    held = false;
+    return;
+  }
   if (event === 'down') {
     if (held) return;
     held = true;
     pressed = Date.now();
-    if (!current) return start(null);
-    if (!current.message && current.state === 'listening') capture(current, 'pressed again');
+    var s = current;
+    if (s && !s.message && (s.state === 'listening' || s.state === 'recognising')) {
+      close(s, 'cancelled with the button');
+      held = true;
+      return startIfHeld();
+    }
+    if (mode === 'hold') return startIfHeld();
+    if (!current) start(null);
   } else if (event === 'up') {
     held = false;
-    var s = current;
-    if (s && !s.message && s.state === 'listening' && Date.now() - pressed >= TAP) capture(s, 'released');
+    clearTimeout(holdTimer);
+    if (current && !current.message && current.state === 'listening' && (mode === 'hold' || Date.now() - pressed >= TAP)) capture(current, 'released');
   }
 }
 

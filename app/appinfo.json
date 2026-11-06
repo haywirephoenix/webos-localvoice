@@ -1,6 +1,6 @@
 {
   "id": "com.haywire.localvoice",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "vendor": "haywire",
   "type": "web",
   "main": "index.html",

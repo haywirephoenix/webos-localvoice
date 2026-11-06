@@ -11,6 +11,7 @@
 #   ctl.sh tune      let the next phrase set the speech level
 #   ctl.sh tuned     how that went, once
 #   ctl.sh speech N  set the speech level by hand
+#   ctl.sh button M  how the remote's button works: none, hold or click
 #
 # The swap survives only until a reboot: a bind mount hides LG's program and the running service
 # takes its name. Nothing in the system's folders is changed.
@@ -19,6 +20,7 @@ APP=$(dirname "$HERE")
 RUN=/tmp/localvoice
 CONF=/var/lib/webosbrew/localvoice.conf
 SPEECH=/var/lib/webosbrew/localvoice.speech
+BUTTON=/var/lib/webosbrew/localvoice.button
 LINK=/var/lib/webosbrew/init.d/60-localvoice
 EXE=/usr/sbin/voiceconductor
 INPUT=/usr/sbin/voiceinput
@@ -32,7 +34,8 @@ CLAIM=/tmp/lifesgoodwithoutspying.claim.$NAME
 STANDIN=/tmp/lifesgoodwithoutspying.answer.$NAME.pid
 export NODE_PATH=/usr/lib/nodejs
 
-json() { printf '{"ok":%s,"enabled":%s,"running":%s,"blocked":%s,"speech":%s,"error":"%s"}\n' "$1" "$(enabled_json)" "$(running_json)" "$(blocked_json)" "$(speech_json)" "$2"; }
+json() { printf '{"ok":%s,"enabled":%s,"running":%s,"blocked":%s,"speech":%s,"button":"%s","error":"%s"}\n' "$1" "$(enabled_json)" "$(running_json)" "$(blocked_json)" "$(speech_json)" "$(button_json)" "$2"; }
+button_json() { [ -s "$BUTTON" ] && cat "$BUTTON" || echo hold; }
 speech_json() { [ -s "$SPEECH" ] && cat "$SPEECH" || echo 150; }
 is_enabled() { grep -q '^enabled=1$' "$CONF" 2>/dev/null; }
 enabled_json() { is_enabled && echo true || echo false; }
@@ -193,6 +196,12 @@ case "$1" in
             *) echo "$2" > "$SPEECH"; json true "" ;;
         esac
         ;;
+    button)
+        case "$2" in
+            none|hold|click) echo "$2" > "$BUTTON"; json true "" ;;
+            *) json false "not a button mode" ;;
+        esac
+        ;;
     start)
         if is_enabled; then start; else json false "not enabled"; fi
         ;;
@@ -212,7 +221,7 @@ case "$1" in
         json true ""
         ;;
     *)
-        echo "usage: $0 status | enable | disable | start | stop | heard | typed | tune | tuned | speech N" >&2
+        echo "usage: $0 status | enable | disable | start | stop | heard | typed | tune | tuned | speech N | button M" >&2
         exit 2
         ;;
 esac

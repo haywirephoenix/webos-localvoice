@@ -32,7 +32,7 @@ With [lifesgoodwithoutspying](https://github.com/lewisdoesstuff/lifesgoodwithout
 
 ## Use
 
-Hold the remote's microphone button, speak, and let go. A quick press also works: it listens until you pause. A card at the bottom of the screen shows **Listening**, then **Recognising**, then what it heard, and the app beneath keeps focus throughout.
+Hold the remote's microphone button, speak, and let go. The microphone stays closed until you hold the button, and a quick press does nothing. On the app's page, **Microphone button** changes this: **Click or Hold** also listens after a quick press, until you pause, and **None** ignores the button. A press while a phrase is being listened to or recognised cancels it without typing anything, and holding that press starts a new phrase. A card at the bottom of the screen shows **Listening**, then **Recognising**, then what it heard, and the app beneath keeps focus throughout.
 
 The text goes into the selected text box, followed by Enter. With a text box selected, a toast shows **Listening** instead of the card, because a new window would close the on-screen keyboard and the box could no longer take text. In YouTube, whose search box is not a real text box, it starts a search. Anywhere else the card shows the words and nothing is typed.
 
