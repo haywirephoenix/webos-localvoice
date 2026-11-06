@@ -19,7 +19,9 @@
   var mode = document.getElementById('mode');
   var less = document.getElementById('less');
   var more = document.getElementById('more');
-  var rows = [[button, mode], [tune, less, more]];   // as they are laid out, for the arrow keys
+  var model = document.getElementById('model');
+  var modelNote = document.getElementById('modelNote');
+  var rows = [[button, mode, model], [tune, less, more]];   // as they are laid out, for the arrow keys
   var MODES = ['hold', 'click', 'none'];
   var MODE_NAMES = {none: 'None', hold: 'Hold', click: 'Click or Hold'};
   var TUNE_WAIT = 60000;   // as the service: an unused request to tune lapses
@@ -50,6 +52,19 @@
     var next = MODES[(MODES.indexOf(modeNow) + 1) % MODES.length];
     showMode(next);
     ctl('button ' + next, function () {});
+  }
+  // Base is downloaded on first use, in the background, and removed on going back to Tiny.
+  var MODEL_STATES = {downloading: 'Base: downloading…', unpacking: 'Base: unpacking…', failed: 'Base: download failed'};
+  function showModel(a) {
+    model.textContent = MODEL_STATES[a.modelState] || 'Speech model: ' + (a.model === 'base' ? 'Base' : 'Tiny');
+    if (a.modelState === 'failed') modelNote.textContent = 'The download failed. Check the TV\'s connection and press again to retry.';
+  }
+  function chooseModel() {
+    if (!state) return;
+    var want = state.model === 'base' ? 'tiny' : 'base';
+    if (state.modelState === 'downloading' || state.modelState === 'unpacking') return;
+    model.textContent = want === 'base' ? 'Base: downloading…' : 'Speech model: Tiny';
+    ctl('model ' + want, function (a) { if (a) show(a); });
   }
   function showSpeech(value) {
     speechLevel = value;
@@ -83,6 +98,7 @@
     watchLevel(a && a.running);
     if (a && a.speech) showSpeech(a.speech);
     if (a && MODES.indexOf(a.button) >= 0) showMode(a.button);
+    if (a) showModel(a);
     busy = false;
     button.disabled = false;
     status.className = '';
@@ -161,6 +177,7 @@
     run(state && state.enabled ? 'disable' : state ? 'enable' : 'status');
   });
   mode.addEventListener('click', nextMode);
+  model.addEventListener('click', chooseModel);
   less.addEventListener('click', function () { nudge(-1); });
   more.addEventListener('click', function () { nudge(1); });
   tune.addEventListener('click', function () {

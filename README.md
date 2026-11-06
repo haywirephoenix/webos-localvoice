@@ -14,6 +14,8 @@ Web apps ask the TV's browser engine for speech recognition, and the engine call
 4. Moonshine, through sherpa-onnx, turns the audio into text on the TV.
 5. An app that asked receives the text as its speech result. Otherwise it is typed through LG's input service.
 
+Speech is recognised by Moonshine tiny, which comes with the app. **Speech model** on the app's page swaps it for Moonshine base, downloaded from the sherpa-onnx releases on first use (111 MB, checked against a pinned SHA-256, kept in `/media/developer/localvoice`). Base takes about twice as long and about 300 MB of memory against 120 MB. It may hear short or unusual words better. If it keeps failing, voice falls back to tiny. Going back to **Tiny** deletes the download, so do that before uninstalling.
+
 The card is a small companion app, `com.haywire.localvoice.card`, which Local Voice installs when it turns on and removes when it turns off.
 
 The swap lasts until a reboot: a bind mount hides LG's program and the service takes its name. Nothing in the system's folders changes. Turning Local Voice off, or a reboot with it off, puts LG's service back.

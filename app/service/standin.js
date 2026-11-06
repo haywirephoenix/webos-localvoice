@@ -19,6 +19,9 @@ var APP = path.dirname(__dirname), RUNTIME = path.join(APP, 'runtime');
 var RUN = '/tmp/localvoice', LOG = RUN + '/log.txt';
 var CONF = '/var/lib/webosbrew/localvoice.conf';
 var SPEECH = '/var/lib/webosbrew/localvoice.speech';  // the speech level, if set
+var MODEL = '/var/lib/webosbrew/localvoice.model';    // base, if chosen over the bundled tiny model
+var BASE_MODEL = '/media/developer/localvoice/base';  // ctl.sh downloads it here
+var ENGINE_PID = RUN + '/engine.pid';                 // ctl.sh restarts the engine to change model
 var BUTTON = '/var/lib/webosbrew/localvoice.button';  // none or click, if not the default of hold
 var TUNE = RUN + '/tune', TUNED = RUN + '/tuned';    // asks for the next phrase to set it, and the outcome
 var TUNE_WAIT = 60000;
@@ -120,15 +123,25 @@ function blocked() {
 
 var engine = {child: null, ready: false, waiting: null, next: null, timer: null, fails: 0, started: 0};
 
+// The larger model may not fit beside what the TV is running. If it keeps failing, the bundled
+// one takes over, so that voice still works.
+function modelDir() {
+  try {
+    if (engine.fails < 2 && fs.readFileSync(MODEL, 'utf8').trim() === 'base' && fs.existsSync(BASE_MODEL + '/encoder_model.ort')) return BASE_MODEL;
+  } catch (e) {}
+  return path.join(RUNTIME, 'model');
+}
 function startEngine() {
-  var lib = path.join(RUNTIME, 'lib');
+  var lib = path.join(RUNTIME, 'lib'), model = modelDir();
   var c = cp.spawn(path.join(lib, 'ld-linux-armhf.so.3'),
-    ['--library-path', lib, path.join(RUNTIME, 'bin/lvengine'), path.join(RUNTIME, 'model')],
+    ['--library-path', lib, path.join(RUNTIME, 'bin/lvengine'), model],
     {stdio: ['pipe', 'pipe', 'pipe']});
   var out = '';
   engine.child = c;
   engine.ready = false;
   engine.started = Date.now();
+  log('engine starting with ' + path.basename(model) + ' model');
+  try { fs.writeFileSync(ENGINE_PID, String(c.pid)); } catch (e) {}
   c.stdin.on('error', function () {});
   // The TV's /etc/ld.so.preload names a library our loader cannot use, which is harmless.
   c.stderr.on('data', function (d) {
