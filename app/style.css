@@ -9,9 +9,12 @@ button:focus { outline: none; border-color: #fff; background: #2f6fed; }
 button:disabled { color: #8f9aa5; }
 #status { min-height: 92px; margin: 32px 0 8px; }
 #meter { position: relative; width: 1100px; height: 20px; margin: 16px 0; overflow: hidden; border-radius: 10px; background: #1d242b; }
-#fill { position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: #8f9aa5; -webkit-transform: scaleX(0); transform: scaleX(0); -webkit-transform-origin: left; transform-origin: left; transition: -webkit-transform .1s linear, transform .1s linear; }
-#meter.speech #fill { background: #ff5a4f; }
-#mark { position: absolute; left: 66%; top: 0; width: 4px; height: 100%; background: #eef1f4; }
+#fill { position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: #eef1f4; -webkit-transform: scaleX(0); transform: scaleX(0); -webkit-transform-origin: left; transform-origin: left; transition: -webkit-transform .1s linear, transform .1s linear; }
+#meter.soft #fill { background: #eef1f4; }
+#meter.clear #fill { background: #4cc38a; }
+#meter.loud #fill { background: #ff5a4f; }
+#mark { position: absolute; left: 66%; top: 0; width: 4px; height: 100%; background: #2f6fed; }
+.row button { margin-right: 24px; }
 #test { box-sizing: border-box; width: 1100px; min-height: 92px; margin: 16px 0 8px; padding: 20px 28px; border: 4px solid #5b6672; border-radius: 16px; background: #1d242b; font-size: 36px; }
 #test.empty { color: #8f9aa5; }
 .error { color: #ffb4a8; }

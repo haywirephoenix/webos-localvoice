@@ -25,9 +25,10 @@
   }
   // Levels arrive ten times a second, and the transition in the stylesheet fills the gaps.
   function level(o) {
-    if (state !== 'listening' || typeof o.level !== 'number') return;
-    for (var i = 0; i < bars.length; i++) height(i, Math.max(REST, SHAPE[i] * o.level / 100));
-    box.className = 'on listening' + (o.speech ? ' speech' : '');
+    if (state !== 'listening' || typeof o.mean !== 'number') return;
+    var full = window.VoiceLevel.height(o.mean);
+    for (var i = 0; i < bars.length; i++) height(i, Math.max(REST, SHAPE[i] * full));
+    box.className = 'on listening ' + window.VoiceLevel.colour(o.mean, o.speechLevel);
   }
   function listen() {
     if (feed) return;

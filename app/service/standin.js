@@ -18,6 +18,9 @@ var SOCKET = '/tmp/voiceinput_remote1.soc';
 var APP = path.dirname(__dirname), RUNTIME = path.join(APP, 'runtime');
 var RUN = '/tmp/localvoice', LOG = RUN + '/log.txt';
 var CONF = '/var/lib/webosbrew/localvoice.conf';
+var SPEECH = '/var/lib/webosbrew/localvoice.speech';  // the speech level, if set
+var TUNE = RUN + '/tune', TUNED = RUN + '/tuned';    // asks for the next phrase to set it, and the outcome
+var TUNE_WAIT = 60000;
 var APP_ID = 'com.haywire.localvoice';
 var CARD_APP = APP_ID + '.card';
 var MANAGER = 'luna://com.webos.applicationManager/';
@@ -41,6 +44,8 @@ var STREAM_WAIT = 2000;     // how long a stream may take to open
 var SOCKET_WAIT = 6000;     // how long the socket may take to appear
 var DECODE_WAIT = 25000;
 var MAX_LOG = 1 << 18;
+var TARGET_PEAK = 20000;    // a quiet voice is raised to about this before recognition
+var MAX_GAIN = 8;
 
 // What was said is only logged with debug=1 in localvoice.conf.
 var debug = false;
@@ -177,6 +182,27 @@ var handles = null, count = 0, current = null;
 var held = false, pressed = 0, field = false;
 var watcher = null;
 
+function speechLevel() {
+  try {
+    var level = parseInt(fs.readFileSync(SPEECH, 'utf8'), 10);
+    if (level > 0) return Detector.clamp(level);
+  } catch (e) {}
+  return Detector.SPEECH_LEVEL;
+}
+function tuneAsked() {
+  try { return Date.now() - fs.statSync(TUNE).mtime.getTime() < TUNE_WAIT; } catch (e) { return false; }
+}
+// The test phrase from the app's page sets the speech level for the phrases after it.
+function finishTuning(s) {
+  var o = Detector.tune(s.means);
+  log('session ' + s.id + ' tuned: ' + JSON.stringify(o));
+  try {
+    if (o.level) fs.writeFileSync(SPEECH, o.level + '\n');
+    fs.writeFileSync(TUNED, JSON.stringify(o));
+    fs.unlinkSync(TUNE);
+  } catch (e) { log('tuning: ' + e); }
+}
+
 // Pages showing how loud the voice is subscribe here. Only the level is sent, never any audio.
 var meters = {};
 function meterEvent(o) {
@@ -192,7 +218,7 @@ function watchMeter(m, h) {
   h.subscriptionAdd('level', m);
   meters[m.uniqueToken()] = m;
   log('level feed: ' + Object.keys(meters).length + ' watching');
-  m.respond(JSON.stringify({returnValue: true, subscribed: true, level: 0, speech: false, threshold: Detector.meter(Detector.SPEECH_LEVEL)}));
+  m.respond(JSON.stringify({returnValue: true, subscribed: true, mean: 0, speechLevel: speechLevel()}));
 }
 
 function send(s, o) {
@@ -218,7 +244,7 @@ function stopMic(s) {
   clearTimeout(s.connectRetry);
   clearTimeout(s.noReply);
   if (s.sock) { try { s.sock.destroy(); } catch (e) {} s.sock = null; }
-  meterEvent({level: 0, speech: false});
+  meterEvent({mean: 0, speechLevel: s.speechLevel});
   if (s.socketSeen && !s.stopped) { s.stopped = true; stopStreaming('session ' + s.id); }
   if (s.stream) { hang(s.stream); s.stream = null; }
 }
@@ -314,20 +340,36 @@ function connect(s) {
         if (n === LEVEL_LOG) log('session ' + s.id + ' levels ' + s.levels.join(' '));
       }
       if (n % 2 === 0) send(s, {event: 'sttVoiceLevel', level: Math.min(100, Math.round(mean / 30))});
-      if (n > Detector.GUARD) meterEvent({level: Detector.meter(mean), speech: mean > Detector.SPEECH_LEVEL});
+      if (n > Detector.GUARD) {
+        s.means.push(mean);
+        meterEvent({mean: Math.round(mean), speechLevel: s.speechLevel});
+      }
       var why = s.detector.feed(mean);
-      if (why) return capture(s, why);
+      // A held button listens until it is let go, however quiet the speaker.
+      if (why === 'time limit' || (why && !(held && !s.message))) return capture(s, why);
     }
   });
+}
+// Small models hear a soft voice poorly, so it is raised to a normal level first.
+function louder(pcm) {
+  var peak = 1, i;
+  for (i = 0; i < pcm.length; i += 2) peak = Math.max(peak, Math.abs(pcm.readInt16LE(i)));
+  var gain = Math.min(MAX_GAIN, TARGET_PEAK / peak);
+  if (gain <= 1) return pcm;
+  for (i = 0; i < pcm.length; i += 2) pcm.writeInt16LE(Math.round(pcm.readInt16LE(i) * gain), i);
+  log('raised by ' + gain.toFixed(1));
+  return pcm;
 }
 function capture(s, why) {
   if (s.closed || s.state !== 'listening') return;
   s.state = 'recognising';
   stopMic(s);
-  var range = s.detector.range();
+  if (s.means.length) log('session ' + s.id + ' levels ' + JSON.stringify(Detector.summary(s.means)));
+  if (s.tuning) finishTuning(s);
+  var range = s.detector.range(why === 'released');
   if (!range) return s.message ? close(s, 'nothing heard') : fail(s, 'Nothing heard', 'nothing heard');
   status(s, 'recognising', 'Recognising');
-  var pcm = Buffer.concat(s.windows.slice(range[0], range[1]));
+  var pcm = louder(Buffer.concat(s.windows.slice(range[0], range[1])));
   s.windows = [];
   var t = Date.now();
   decode(pcm, function (err, text) {
@@ -377,8 +419,9 @@ function start(m) {
   if (current) { current.keepCard = true; close(current, 'replaced by a new request'); }
   count++;
   var s = current = {id: count, message: m, keepCard: false, plain: field, ticket: 'localvoice' + count, begun: Date.now(), state: 'listening',
-    detector: new Detector(), windows: [], pending: Buffer.alloc(0), levels: [], bytes: 0, closed: false,
+    speechLevel: speechLevel(), tuning: tuneAsked(), means: [], windows: [], pending: Buffer.alloc(0), levels: [], bytes: 0, closed: false,
     sock: null, stream: null, socketSeen: false, stopped: false, retried: false};
+  s.detector = new Detector({speechLevel: s.speechLevel});
   send(s, {event: 'registered'});
   send(s, {event: 'sttStart'});
   if (blocked()) return fail(s, BLOCKED, 'blocked');

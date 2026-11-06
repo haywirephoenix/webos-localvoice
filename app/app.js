@@ -12,7 +12,13 @@
   var test = document.getElementById('test');
   var meter = document.getElementById('meter');
   var fill = document.getElementById('fill');
-  var state = null, busy = false, feed = null;
+  var tune = document.getElementById('tune');
+  var speech = document.getElementById('speech');
+  var note = document.getElementById('tuneNote');
+  var mark = document.getElementById('mark');
+  var buttons = [button, tune, speech];
+  var TUNE_WAIT = 60000;   // as the service: an unused request to tune lapses
+  var state = null, busy = false, feed = null, speechLevel = 150, tuneEnds = 0;
   // Older engines can collect a bridge while its call is in flight, so hold each until it answers.
   var bridges = [];
 
@@ -31,20 +37,25 @@
     };
     bridge.call(EXEC, JSON.stringify({command: 'sh ' + CTL + ' ' + command}));
   }
+  function showSpeech(value) {
+    speechLevel = value;
+    speech.textContent = 'Speech level: ' + value;
+    mark.style.left = (100 * window.VoiceLevel.height(value)).toFixed(1) + '%';
+  }
   // How loud the voice is, ten times a second, with a mark at the level that counts as speech.
   function level(o) {
-    if (typeof o.threshold === 'number') document.getElementById('mark').style.left = o.threshold + '%';
-    if (typeof o.level !== 'number') return;
-    var scale = 'scaleX(' + (o.level / 100).toFixed(3) + ')';
+    if (typeof o.mean !== 'number') return;
+    var scale = 'scaleX(' + window.VoiceLevel.height(o.mean).toFixed(3) + ')';
     fill.style.webkitTransform = scale;
     fill.style.transform = scale;
-    meter.className = o.speech ? 'speech' : '';
+    meter.className = window.VoiceLevel.colour(o.mean, speechLevel);
+    if (o.speechLevel && o.speechLevel !== speechLevel) showSpeech(o.speechLevel);
   }
   function watchLevel(running) {
     if (!running) {
       if (feed) feed.cancel();
       feed = null;
-      return level({level: 0, speech: false});
+      return level({mean: 0});
     }
     if (feed) return;
     feed = new window.PalmServiceBridge();
@@ -56,6 +67,7 @@
   function show(a) {
     state = a;
     watchLevel(a && a.running);
+    if (a && a.speech) showSpeech(a.speech);
     busy = false;
     button.disabled = false;
     status.className = '';
@@ -78,7 +90,7 @@
       status.textContent = a.running ? 'On. LG\'s voice service is replaced until you turn this off.' :
         a.enabled ? 'Starting…' : 'Off. LG\'s voice service is in place.';
     }
-    button.focus();
+    if (buttons.indexOf(document.activeElement) < 0) button.focus();
   }
   function run(command) {
     busy = true;
@@ -98,13 +110,38 @@
       if (!same) show(a);
     });
   }
+  // Steps of a tenth, to the nearest ten, within what the service accepts.
+  function nudge(direction) {
+    var next = Math.round(speechLevel * (direction > 0 ? 1.1 : 1 / 1.1) / 10) * 10;
+    next = Math.max(100, Math.min(3000, next));
+    showSpeech(next);
+    ctl('speech ' + next, function () {});
+  }
+  function tuned(a) {
+    if (a && (a.level || a.error)) {
+      tuneEnds = 0;
+      if (a.level) showSpeech(a.level);
+      note.textContent = a.level ? 'Done. Room ' + a.quiet + ', voice ' + a.voice + ', so the speech level is ' + a.level + '.' : a.error + '. Try again.';
+    } else if (Date.now() > tuneEnds) {
+      tuneEnds = 0;
+      note.textContent = 'Nothing heard. Try again.';
+    }
+  }
   button.addEventListener('click', function () {
     run(state && state.enabled ? 'disable' : state ? 'enable' : 'status');
   });
+  tune.addEventListener('click', function () {
+    tuneEnds = Date.now() + TUNE_WAIT;
+    note.textContent = 'Hold the microphone button, wait two seconds, say a sentence in your normal voice, then let go.';
+    ctl('tune', function () {});
+  });
   document.addEventListener('keydown', function (e) {
     if (e.keyCode === 461 || e.keyCode === 27) window.close();
-    else if (e.keyCode === 13 && document.activeElement !== button) button.click();
-    else if (document.activeElement !== button) button.focus();
+    else if (e.keyCode === 38 || e.keyCode === 40) {
+      var at = buttons.indexOf(document.activeElement);
+      buttons[(at + (e.keyCode === 40 ? 1 : buttons.length - 1)) % buttons.length].focus();
+    } else if ((e.keyCode === 37 || e.keyCode === 39) && document.activeElement === speech) nudge(e.keyCode - 38);
+    else if (buttons.indexOf(document.activeElement) < 0) button.focus();
   });
   document.addEventListener('visibilitychange', refresh);
   document.addEventListener('webOSRelaunch', refresh);
@@ -117,6 +154,7 @@
       test.textContent = a.text;
       test.className = '';
     });
+    if (tuneEnds) ctl('tuned', tuned);
   }, 1000);
   run('status');
 })();

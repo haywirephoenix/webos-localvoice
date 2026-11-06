@@ -8,6 +8,9 @@
 #   ctl.sh stop      give LG's service back, for now
 #   ctl.sh heard     the last phrase, for the card, once
 #   ctl.sh typed     the last phrase, for this app's page, once
+#   ctl.sh tune      let the next phrase set the speech level
+#   ctl.sh tuned     how that went, once
+#   ctl.sh speech N  set the speech level by hand
 #
 # The swap survives only until a reboot: a bind mount hides LG's program and the running service
 # takes its name. Nothing in the system's folders is changed.
@@ -15,6 +18,7 @@ HERE=$(cd "$(dirname "$(realpath "$0")")" && pwd)
 APP=$(dirname "$HERE")
 RUN=/tmp/localvoice
 CONF=/var/lib/webosbrew/localvoice.conf
+SPEECH=/var/lib/webosbrew/localvoice.speech
 LINK=/var/lib/webosbrew/init.d/60-localvoice
 EXE=/usr/sbin/voiceconductor
 INPUT=/usr/sbin/voiceinput
@@ -28,7 +32,8 @@ CLAIM=/tmp/lifesgoodwithoutspying.claim.$NAME
 STANDIN=/tmp/lifesgoodwithoutspying.answer.$NAME.pid
 export NODE_PATH=/usr/lib/nodejs
 
-json() { printf '{"ok":%s,"enabled":%s,"running":%s,"blocked":%s,"error":"%s"}\n' "$1" "$(enabled_json)" "$(running_json)" "$(blocked_json)" "$2"; }
+json() { printf '{"ok":%s,"enabled":%s,"running":%s,"blocked":%s,"speech":%s,"error":"%s"}\n' "$1" "$(enabled_json)" "$(running_json)" "$(blocked_json)" "$(speech_json)" "$2"; }
+speech_json() { [ -s "$SPEECH" ] && cat "$SPEECH" || echo 150; }
 is_enabled() { grep -q '^enabled=1$' "$CONF" 2>/dev/null; }
 enabled_json() { is_enabled && echo true || echo false; }
 pid_running() {
@@ -171,10 +176,22 @@ stop() {
 
 case "$1" in
     status) json true "" ;;
-    heard|typed)
+    heard|typed|tuned)
         cat "$RUN/$1" 2>/dev/null || echo '{}'
         echo
         rm -f "$RUN/$1"
+        ;;
+    tune)
+        mkdir -p "$RUN"
+        rm -f "$RUN/tuned"
+        touch "$RUN/tune"
+        json true ""
+        ;;
+    speech)
+        case "$2" in
+            ''|*[!0-9]*) json false "not a number" ;;
+            *) echo "$2" > "$SPEECH"; json true "" ;;
+        esac
         ;;
     start)
         if is_enabled; then start; else json false "not enabled"; fi
@@ -195,7 +212,7 @@ case "$1" in
         json true ""
         ;;
     *)
-        echo "usage: $0 status | enable | disable | start | stop | heard | typed" >&2
+        echo "usage: $0 status | enable | disable | start | stop | heard | typed | tune | tuned | speech N" >&2
         exit 2
         ;;
 esac

@@ -233,7 +233,8 @@ def main():
     args = parser.parse_args()
     info = json.loads((ROOT / "app/appinfo.json").read_text())
     version = info["version"]
-    card_files = app_files("card") + [("icon.png", (ROOT / "app/icon.png").read_bytes(), 0o644)]
+    card_files = app_files("card") + [("icon.png", (ROOT / "app/icon.png").read_bytes(), 0o644),
+                                      ("level.js", (ROOT / "app/level.js").read_bytes(), 0o644)]
     card, _ = package(CARD, version, card_files, "The status card of Local Voice")
     files = app_files() + [("runtime/" + n, d, m) for n, d, m in runtime_files()]
     files += [("card/card.ipk", card, 0o644), ("card/version", ('"version": "%s"' % version).encode(), 0o644)]

@@ -57,12 +57,39 @@ var tests = {
   }
 };
 var failed = 0;
-tests['the meter keeps a quiet room at the bottom and speech in the upper half'] = function () {
-  assert.strictEqual(Detector.meter(0), 0);
-  assert.strictEqual(Detector.meter(40), 0);
-  assert.strictEqual(Detector.meter(1000), 100);
-  assert.strictEqual(Detector.meter(5000), 100);
-  assert.ok(Detector.meter(Detector.SPEECH_LEVEL) > 50 && Detector.meter(Detector.SPEECH_LEVEL) < 75);
+tests['speech carries on through a softer stretch'] = function () {
+  var d = new Detector({speechLevel: 100}), why = '', i;
+  for (i = 0; i < 10; i++) why = d.feed(i < 4 ? 40 : 200);
+  for (i = 0; i < 20; i++) why = d.feed(80) || why;
+  assert.strictEqual(why, '');
+  for (i = 0; i < 12; i++) why = d.feed(40) || why;
+  assert.strictEqual(why, 'silence');
+};
+tests['a phrase ended by the speaker is kept whole'] = function () {
+  var d = new Detector({speechLevel: 100}), i;
+  for (i = 0; i < 40; i++) d.feed(i > 20 && i < 26 ? 200 : 40);
+  assert.deepStrictEqual(d.range(true), [4, 40]);
+};
+function phrase(quiet, voice) {
+  var means = [];
+  for (var i = 0; i < 30; i++) means.push(i < 10 ? quiet : voice);
+  return means;
+}
+tests['tuning lands between the room and the voice'] = function () {
+  var o = Detector.tune(phrase(60, 2400));
+  assert.strictEqual(o.quiet, 60);
+  assert.strictEqual(o.voice, 2400);
+  assert.strictEqual(o.level, 379);
+};
+tests['tuning refuses a voice that does not stand out'] = function () {
+  assert.ok(Detector.tune(phrase(200, 300)).error);
+};
+tests['tuning refuses a phrase that is too short'] = function () {
+  assert.ok(Detector.tune([50, 900, 900]).error);
+};
+tests['tuning stays in bounds'] = function () {
+  assert.strictEqual(Detector.tune(phrase(10, 40)).level, 100);
+  assert.strictEqual(Detector.tune(phrase(4000, 30000)).level, 3000);
 };
 
 Object.keys(tests).forEach(function (name) {

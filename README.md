@@ -8,7 +8,7 @@ Tested on one TV so far: an OLED55BX6LB (webOS 5.4.3, MR20 remote). Other models
 
 Web apps ask the TV's browser engine for speech recognition, and the engine calls LG's `com.webos.service.voiceconductor`. Local Voice stands in for that service:
 
-1. A request or a press of the remote's button arrives and the card shows **Listening**, with bars that follow how loud the voice is. The bars and the meter on the app's page turn red at the level that counts as speech. Only the level goes to them, never any audio.
+1. A request or a press of the remote's button arrives and the card shows **Listening**, with bars that follow how loud the voice is. The bars and the meter on the app's page are white below the speech level, green above it and red when loud. Only the level goes to them, never any audio. How they are drawn is set by the constants in `app/level.js`.
 2. The service opens the remote's microphone through LG's own `voiceinput`.
 3. It stops after 1.2 s of quiet, after 7 s with no speech, or at about 10 s.
 4. Moonshine, through sherpa-onnx, turns the audio into text on the TV.
