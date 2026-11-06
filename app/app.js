@@ -38,8 +38,8 @@
       button.textContent = a.enabled ? 'Turn off' : 'Turn on';
       status.className = 'error';
       status.textContent = a.enabled ?
-        'Blocked: Voice is switched off in Life\'s Good Without Spying, so apps get no microphone. Turn that switch off and this resumes by itself.' :
-        'Off. Voice is also switched off in Life\'s Good Without Spying, and that needs turning off before this can work.';
+        'Blocked: Life\'s Good Without Spying has stopped the microphone service. Turn on its Keep microphone service setting and this resumes by itself.' :
+        'Off. Life\'s Good Without Spying has stopped the microphone service. Turn on its Keep microphone service setting before using this.';
     } else if (a.error) {
       button.textContent = a.enabled ? 'Turn off' : 'Turn on';
       status.className = 'error';

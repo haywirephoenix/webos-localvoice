@@ -17,6 +17,12 @@ LINK=/var/lib/webosbrew/init.d/60-localvoice
 EXE=/usr/sbin/voiceconductor
 INPUT=/usr/sbin/voiceinput
 UNIT=voiceconductor.service
+NAME=com.webos.service.voiceconductor
+MOUNTS=/proc/self/mountinfo
+# lifesgoodwithoutspying answers for this name with a stand-in. Its claim file asks it to step
+# aside while a pid lives. LG's program stays hidden either way.
+CLAIM=/tmp/lifesgoodwithoutspying.claim.$NAME
+STANDIN=/tmp/lifesgoodwithoutspying.answer.$NAME.pid
 export NODE_PATH=/usr/lib/nodejs
 
 json() { printf '{"ok":%s,"enabled":%s,"running":%s,"blocked":%s,"error":"%s"}\n' "$1" "$(enabled_json)" "$(running_json)" "$(blocked_json)" "$2"; }
@@ -31,12 +37,25 @@ pid_running() {
     return 1
 }
 running_json() { pid_running && echo true || echo false; }
-# lifesgoodwithoutspying's Voice toggle stubs voiceinput too, and without it there is no mic.
+# lifesgoodwithoutspying's Voice toggle stubs voiceinput too, and without it there is no mic,
+# unless its Keep microphone service setting leaves voiceinput alone. That is the user's choice
+# to make there: this only reads the result.
 is_blocked() { grep -q " $INPUT " /proc/mounts; }
 blocked_json() { is_blocked && echo true || echo false; }
 
+# What is bound over LG's program, oldest first. lifesgoodwithoutspying may bind there too.
+stack() { awk -v p="$EXE" '$5 == p { print $4 }' "$MOUNTS"; }
+ours_on_top() {
+    case "$(stack | tail -n 1)" in
+        */localvoice/stub) return 0 ;;
+    esac
+    return 1
+}
+ours_below() { ! ours_on_top && stack | grep -q '/localvoice/stub$'; }
+
 hide_lg() {
-    grep -q " $EXE " /proc/mounts && return 0
+    # Anyone's stub hides it. Never bind over theirs: they could not then clear their own.
+    [ -n "$(stack)" ] && return 0
     printf '#!/bin/sh\nexit 0\n' > "$RUN/stub"
     chmod 755 "$RUN/stub"
     # The hub starts the service on demand, so the real program must be hidden before it stops.
@@ -51,19 +70,29 @@ hide_lg() {
     [ -n "$p" ] && kill $p
     return 0
 }
+# Takes off our stub and nothing else. Another stub means someone still wants LG's service off,
+# so it stays and the service is not started.
 give_back() {
     n=0
-    while grep -q " $EXE " /proc/mounts && [ "$n" -lt 5 ]; do
+    while ours_on_top && [ "$n" -lt 5 ]; do
         umount "$EXE" 2>/dev/null || umount -l "$EXE" 2>/dev/null
         n=$((n + 1))
     done
-    systemctl --no-block start "$UNIT"
+    [ -z "$(stack)" ] && systemctl --no-block start "$UNIT"
+}
+claim_name() {
+    echo "$1" > "$CLAIM"
+    [ -f "$STANDIN" ] || return 0
+    p=$(cat "$STANDIN")
+    case " $(tr '\000' ' ' 2>/dev/null < "/proc/$p/cmdline") " in
+        *"/nospy-luna-stub.js "*) kill -KILL "$p" ;;
+    esac
 }
 start() {
     mkdir -p "$RUN"
     pid_running && { json true ""; return; }
     if is_blocked; then
-        json false "the Voice switch of lifesgoodwithoutspying is on"
+        json false "the Voice switch of lifesgoodwithoutspying stops the microphone"
         return
     fi
     if ! hide_lg; then
@@ -77,14 +106,18 @@ start() {
         fails=0
         while [ -f "$RUN/keep" ] && [ "$fails" -lt 5 ]; do
             began=$(cut -d. -f1 /proc/uptime)
+            # A stub cleared while this ran left LG's program able to start in the gap.
+            hide_lg
             node "$APP/service/standin.js" </dev/null >>"$RUN/node.out" 2>&1 &
-            echo $! > "$RUN/node.pid"
-            wait $!
+            pid=$!
+            echo "$pid" > "$RUN/node.pid"
+            claim_name "$pid"
+            wait "$pid"
             [ $(($(cut -d. -f1 /proc/uptime) - began)) -ge 60 ] && fails=0 || fails=$((fails + 1))
             [ -f "$RUN/keep" ] && sleep 3
         done
         if [ -f "$RUN/keep" ]; then
-            rm -f "$RUN/keep" "$RUN/node.pid"
+            rm -f "$RUN/keep" "$RUN/node.pid" "$CLAIM"
             give_back
         fi
     ) </dev/null >/dev/null 2>&1 &
@@ -101,8 +134,9 @@ stop() {
         kill "$(cat "$RUN/node.pid")" 2>/dev/null
         rm -f "$RUN/node.pid"
     fi
+    rm -f "$CLAIM"
     sleep 1
-    if ! is_blocked; then
+    if ! ours_below; then
         give_back
         return
     fi
@@ -110,7 +144,7 @@ stop() {
     # stub rather than ours. Wait for it to clear its own, unless this service starts again.
     (
         trap '' HUP
-        while is_blocked && [ ! -f "$RUN/keep" ]; do
+        while ours_below && [ ! -f "$RUN/keep" ]; do
             sleep 10
         done
         [ -f "$RUN/keep" ] || give_back

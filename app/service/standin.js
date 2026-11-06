@@ -45,8 +45,9 @@ function toast(message) {
   });
 }
 
-// lifesgoodwithoutspying's Voice switch hides voiceinput, which supplies the microphone. That is
-// someone's privacy choice, so it is reported and never undone. Everything resumes when it is off.
+// lifesgoodwithoutspying's Voice switch hides voiceinput, which supplies the microphone, unless
+// its Keep microphone service setting is on. That is someone's privacy choice, so it is reported
+// and never undone. Everything resumes when voiceinput is back.
 var BLOCKED = "Voice is blocked by Life's Good Without Spying";
 function blocked() {
   try { return / \/usr\/sbin\/voiceinput /.test(fs.readFileSync('/proc/mounts', 'utf8')); }

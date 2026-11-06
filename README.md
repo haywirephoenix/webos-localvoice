@@ -20,7 +20,7 @@ The swap lasts until a reboot: a bind mount hides LG's program and the service t
 
 Needs root and the Homebrew Channel. Install the `.ipk` through the Homebrew Channel or `ares-install`, open **Local Voice** and choose **Turn on**.
 
-With [lifesgoodwithoutspying](https://github.com/lewisdoesstuff/lifesgoodwithoutspying), its **Voice** switch has to be off, because that switch also stops `voiceinput`, which supplies the microphone. Local Voice never overrides that switch: while it is on, the app and the press of a microphone button say so, and voice resumes by itself once it is off. Turn Local Voice off before removing the app.
+With [lifesgoodwithoutspying](https://github.com/lewisdoesstuff/lifesgoodwithoutspying), its **Voice** switch also stops `voiceinput`, which supplies the microphone. Turn on its **Keep microphone service** setting to leave `voiceinput` running while LG's other voice services stay stopped. Local Voice never overrides that app: while `voiceinput` is stopped, the app and the press of a microphone button say so, and voice resumes by itself once it is back. Turning Local Voice off leaves that app's stubs in place, and LG's service only returns if nothing else is hiding it. Turn Local Voice off before removing the app.
 
 ## Use
 
@@ -52,7 +52,7 @@ python tools/build.py
 
 `tools/build.py` downloads the engine, model and libraries into `.cache`, checks each against a pinned SHA-256, compiles `native/lvengine.c` for 32-bit ARM, and writes `dist/com.haywire.localvoice_<version>_all.ipk`.
 
-Run the tests with `node tests/detector.test.js`.
+Run the tests with `node tests/detector.test.js` and `node tests/ctl.test.js`.
 
 ## Debugging
 
