@@ -4,12 +4,15 @@
   'use strict';
   var CTL = '/media/developer/apps/usr/palm/applications/com.haywire.localvoice/init/ctl.sh';
   var EXEC = 'luna://org.webosbrew.hbchannel.service/exec';
+  var METER = 'luna://com.webos.service.voiceconductor/getVoiceUiEvents';
   var button = document.getElementById('toggle');
   var status = document.getElementById('status');
   // The box is only a display. A real text box would bring up the keyboard, and the card, like
   // any new window, closes the keyboard and leaves the box unable to take text.
   var test = document.getElementById('test');
-  var state = null, busy = false;
+  var meter = document.getElementById('meter');
+  var fill = document.getElementById('fill');
+  var state = null, busy = false, feed = null;
   // Older engines can collect a bridge while its call is in flight, so hold each until it answers.
   var bridges = [];
 
@@ -28,8 +31,31 @@
     };
     bridge.call(EXEC, JSON.stringify({command: 'sh ' + CTL + ' ' + command}));
   }
+  // How loud the voice is, ten times a second, with a mark at the level that counts as speech.
+  function level(o) {
+    if (typeof o.threshold === 'number') document.getElementById('mark').style.left = o.threshold + '%';
+    if (typeof o.level !== 'number') return;
+    var scale = 'scaleX(' + (o.level / 100).toFixed(3) + ')';
+    fill.style.webkitTransform = scale;
+    fill.style.transform = scale;
+    meter.className = o.speech ? 'speech' : '';
+  }
+  function watchLevel(running) {
+    if (!running) {
+      if (feed) feed.cancel();
+      feed = null;
+      return level({level: 0, speech: false});
+    }
+    if (feed) return;
+    feed = new window.PalmServiceBridge();
+    feed.onservicecallback = function (msg) {
+      try { level(JSON.parse(msg)); } catch (e) {}
+    };
+    feed.call(METER, '{"subscribe":true}');
+  }
   function show(a) {
     state = a;
+    watchLevel(a && a.running);
     busy = false;
     button.disabled = false;
     status.className = '';

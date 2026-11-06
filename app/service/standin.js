@@ -177,6 +177,24 @@ var handles = null, count = 0, current = null;
 var held = false, pressed = 0, field = false;
 var watcher = null;
 
+// Pages showing how loud the voice is subscribe here. Only the level is sent, never any audio.
+var meters = {};
+function meterEvent(o) {
+  o.returnValue = true;
+  o.subscribed = true;
+  var body = JSON.stringify(o);
+  Object.keys(meters).forEach(function (token) {
+    try { meters[token].respond(body); } catch (e) { delete meters[token]; }
+  });
+}
+function watchMeter(m, h) {
+  // Without this the bus never says that a page has gone.
+  h.subscriptionAdd('level', m);
+  meters[m.uniqueToken()] = m;
+  log('level feed: ' + Object.keys(meters).length + ' watching');
+  m.respond(JSON.stringify({returnValue: true, subscribed: true, level: 0, speech: false, threshold: Detector.meter(Detector.SPEECH_LEVEL)}));
+}
+
 function send(s, o) {
   if (!s.message) return;
   o.returnValue = true;
@@ -200,6 +218,7 @@ function stopMic(s) {
   clearTimeout(s.connectRetry);
   clearTimeout(s.noReply);
   if (s.sock) { try { s.sock.destroy(); } catch (e) {} s.sock = null; }
+  meterEvent({level: 0, speech: false});
   if (s.socketSeen && !s.stopped) { s.stopped = true; stopStreaming('session ' + s.id); }
   if (s.stream) { hang(s.stream); s.stream = null; }
 }
@@ -295,6 +314,7 @@ function connect(s) {
         if (n === LEVEL_LOG) log('session ' + s.id + ' levels ' + s.levels.join(' '));
       }
       if (n % 2 === 0) send(s, {event: 'sttVoiceLevel', level: Math.min(100, Math.round(mean / 30))});
+      if (n > Detector.GUARD) meterEvent({level: Detector.meter(mean), speech: mean > Detector.SPEECH_LEVEL});
       var why = s.detector.feed(mean);
       if (why) return capture(s, why);
     }
@@ -423,9 +443,10 @@ process.on('SIGTERM', function () { process.exit(0); });
 
 // --- the bus -------------------------------------------------------------------------------
 
-function request(m) {
+function request(m, h) {
   var method = m.method();
   if (method === 'recognizeVoiceWithDetails' || method === 'recognizeVoice') return start(m);
+  if (method === 'getVoiceUiEvents' && /"subscribe"\s*:\s*true/.test(String(m.payload()))) return watchMeter(m, h);
   if (method === 'cancelRecognition') cancel(m);
   if (method === 'setInputEvent') keyEvent(m);
   if (method === 'getSupportedLanguages') return m.respond(JSON.stringify({returnValue: true, voiceEngines: {}, voiceLanguages: {}}));
@@ -457,7 +478,8 @@ function take() {
       Object.keys(methods).forEach(function (c) {
         Object.keys(methods[c]).forEach(function (n) { h.registerMethod(c, n); });
       });
-      h.addListener('request', request);
+      h.addListener('request', function (m) { request(m, h); });
+      h.addListener('cancel', function (m) { delete meters[m.uniqueToken()]; });
       return h;
     });
     log('name taken after ' + tries + ' retries');

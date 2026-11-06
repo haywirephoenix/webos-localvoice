@@ -57,6 +57,14 @@ var tests = {
   }
 };
 var failed = 0;
+tests['the meter keeps a quiet room at the bottom and speech in the upper half'] = function () {
+  assert.strictEqual(Detector.meter(0), 0);
+  assert.strictEqual(Detector.meter(40), 0);
+  assert.strictEqual(Detector.meter(1000), 100);
+  assert.strictEqual(Detector.meter(5000), 100);
+  assert.ok(Detector.meter(Detector.SPEECH_LEVEL) > 50 && Detector.meter(Detector.SPEECH_LEVEL) < 75);
+};
+
 Object.keys(tests).forEach(function (name) {
   try { tests[name](); console.log('ok   ' + name); }
   catch (e) { failed++; console.log('FAIL ' + name + ': ' + e.message); }

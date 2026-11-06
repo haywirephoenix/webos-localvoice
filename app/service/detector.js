@@ -15,6 +15,14 @@ var DEFAULTS = {
   tail: 4           // kept of the quiet after the last word
 };
 
+// A mean level as 0 to 100 for a meter. Hearing is logarithmic, and on a straight scale speech
+// would hardly move: LEVEL_FLOOR is about the room and LEVEL_TOP about the loudest speech.
+var LEVEL_FLOOR = 40, LEVEL_TOP = 1000;
+function meter(mean) {
+  var share = Math.log(Math.max(mean, 1) / LEVEL_FLOOR) / Math.log(LEVEL_TOP / LEVEL_FLOOR);
+  return Math.round(100 * Math.max(0, Math.min(1, share)));
+}
+
 function Detector(options) {
   var o = this.options = {};
   Object.keys(DEFAULTS).forEach(function (k) { o[k] = options && k in options ? options[k] : DEFAULTS[k]; });
@@ -51,3 +59,6 @@ Detector.prototype.range = function () {
 };
 
 module.exports = Detector;
+module.exports.meter = meter;
+module.exports.SPEECH_LEVEL = DEFAULTS.speechLevel;
+module.exports.GUARD = DEFAULTS.guard;

@@ -8,16 +8,46 @@
   var EXEC = 'luna://org.webosbrew.hbchannel.service/exec';
   var FOR_SHOW = 3500;    // a finished card stays this long
   var FOR_WORK = 30000;   // a working one no longer than this, should the service go quiet
+  var METER = 'luna://com.webos.service.voiceconductor/getVoiceUiEvents';
+  var SHAPE = [.45, .7, .9, 1, .9, .7, .45];   // how far each bar moves with the voice
+  var REST = .1;
   var box = document.getElementById('card');
-  var timer = null, bridge = null;
+  var bars = document.getElementById('bars').children;
+  var timer = null, bridge = null, feed = null, state = '';
 
   function params() {
     try { return JSON.parse(window.PalmSystem.launchParams || '{}').card || {}; } catch (e) { return {}; }
+  }
+  function height(i, value) {
+    var scale = 'scaleY(' + value.toFixed(3) + ')';
+    bars[i].style.webkitTransform = scale;
+    bars[i].style.transform = scale;
+  }
+  // Levels arrive ten times a second, and the transition in the stylesheet fills the gaps.
+  function level(o) {
+    if (state !== 'listening' || typeof o.level !== 'number') return;
+    for (var i = 0; i < bars.length; i++) height(i, Math.max(REST, SHAPE[i] * o.level / 100));
+    box.className = 'on listening' + (o.speech ? ' speech' : '');
+  }
+  function listen() {
+    if (feed) return;
+    feed = new window.PalmServiceBridge();
+    feed.onservicecallback = function (msg) {
+      try { level(JSON.parse(msg)); } catch (e) {}
+    };
+    feed.call(METER, '{"subscribe":true}');
   }
   function fill(c, text) {
     document.getElementById('message').textContent = text;
     document.getElementById('hint').textContent = c.hint || '';
     box.className = 'on ' + c.state;
+    state = c.state;
+    // An inline height would override the animations of the other states.
+    for (var i = 0; i < bars.length; i++) {
+      bars[i].style.webkitTransform = '';
+      bars[i].style.transform = '';
+    }
+    if (state === 'listening') listen();
     clearTimeout(timer);
     timer = setTimeout(function () { window.close(); }, c.state === 'listening' || c.state === 'recognising' ? FOR_WORK : FOR_SHOW);
   }

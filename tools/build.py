@@ -70,6 +70,7 @@ UBUNTU_LICENCES = {"usr/share/doc/libc6/copyright": "glibc-copyright", "usr/shar
                    "usr/share/common-licenses/LGPL-2.1": "LGPL-2.1", "usr/share/common-licenses/GPL-3": "GPL-3"}
 REPOSITORY = "https://github.com/haywirephoenix/webos-localvoice"
 ICON = "https://raw.githubusercontent.com/haywirephoenix/webos-localvoice/main/app/largeIcon.png"
+PAGES = "https://haywirephoenix.github.io/webos-localvoice/"
 SUMMARY = "Speech recognition that runs on the TV, for the remote's microphone button and apps with their own"
 UBUNTU_LIBS = ["ld-linux-armhf.so.3", "libc.so.6", "libm.so.6", "libdl.so.2", "libpthread.so.0", "librt.so.1",
                "libgcc_s.so.1", "libstdc++.so.6"]
@@ -219,6 +220,7 @@ def repository(version, ipk_name, ipk):
                 "ipkUrl": "%s/releases/download/v%s/%s" % (REPOSITORY, version, ipk_name),
                 "ipkHash": {"sha256": hashlib.sha256(ipk).hexdigest()}}
     package = {"id": APP, "title": "Local Voice", "iconUri": ICON, "shortDescription": SUMMARY, "pool": "main",
+               "fullDescriptionUrl": PAGES + "full_description.html",
                "manifestUrl": "%s/releases/download/v%s/%s.manifest.json" % (REPOSITORY, version, APP), "manifest": manifest}
     paging = {"page": 1, "count": 1, "maxPage": 1, "itemsTotal": 1, "itemsPerPage": 1}
     return manifest, {"paging": paging, "packages": [package]}
