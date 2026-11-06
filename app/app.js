@@ -1,4 +1,4 @@
-// The settings screen: one switch. Root work goes through the Homebrew Channel's exec to ctl.sh.
+// The settings screen: one switch and a text box to try voice in. Root work goes through the Homebrew Channel's exec to ctl.sh.
 // Plain ES5, for the older web engines of webOS 5 and 6.
 (function () {
   'use strict';
@@ -6,6 +6,9 @@
   var EXEC = 'luna://org.webosbrew.hbchannel.service/exec';
   var button = document.getElementById('toggle');
   var status = document.getElementById('status');
+  // The box is only a display. A real text box would bring up the keyboard, and the card, like
+  // any new window, closes the keyboard and leaves the box unable to take text.
+  var test = document.getElementById('test');
   var state = null, busy = false;
   // Older engines can collect a bridge while its call is in flight, so hold each until it answers.
   var bridges = [];
@@ -38,8 +41,8 @@
       button.textContent = a.enabled ? 'Turn off' : 'Turn on';
       status.className = 'error';
       status.textContent = a.enabled ?
-        'Blocked: Life\'s Good Without Spying has stopped the microphone service. Turn on its Keep microphone service setting and this resumes by itself.' :
-        'Off. Life\'s Good Without Spying has stopped the microphone service. Turn on its Keep microphone service setting before using this.';
+        'Blocked: this TV\'s microphone service is turned off, so apps get no microphone. A privacy tool may have done this, such as the Voice switch in Life\'s Good Without Spying. This resumes by itself once the service is back.' :
+        'Off. This TV\'s microphone service is also turned off, and it has to be back before this can work. A privacy tool may have done this, such as the Voice switch in Life\'s Good Without Spying.';
     } else if (a.error) {
       button.textContent = a.enabled ? 'Turn off' : 'Turn on';
       status.className = 'error';
@@ -81,5 +84,13 @@
   document.addEventListener('webOSRelaunch', refresh);
   window.addEventListener('focus', refresh);
   setInterval(refresh, 5000);
+  setInterval(function () {
+    if (document.hidden) return;
+    ctl('typed', function (a) {
+      if (!a || !a.text) return;
+      test.textContent = a.text;
+      test.className = '';
+    });
+  }, 1000);
   run('status');
 })();

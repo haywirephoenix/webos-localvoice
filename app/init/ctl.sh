@@ -6,6 +6,8 @@
 #   ctl.sh disable   stop it, forget it, and give LG's service back
 #   ctl.sh start     start if enabled (boot.sh runs this)
 #   ctl.sh stop      give LG's service back, for now
+#   ctl.sh heard     the last phrase, for the card, once
+#   ctl.sh typed     the last phrase, for this app's page, once
 #
 # The swap survives only until a reboot: a bind mount hides LG's program and the running service
 # takes its name. Nothing in the system's folders is changed.
@@ -17,6 +19,7 @@ LINK=/var/lib/webosbrew/init.d/60-localvoice
 EXE=/usr/sbin/voiceconductor
 INPUT=/usr/sbin/voiceinput
 UNIT=voiceconductor.service
+CARD=com.haywire.localvoice.card
 NAME=com.webos.service.voiceconductor
 MOUNTS=/proc/self/mountinfo
 # lifesgoodwithoutspying answers for this name with a stand-in. Its claim file asks it to step
@@ -88,11 +91,26 @@ claim_name() {
         *"/nospy-luna-stub.js "*) kill -KILL "$p" ;;
     esac
 }
+# A window's type is fixed per app and a package holds one app, so the card ships as a package
+# inside this one. Without it the service falls back to toasts.
+card_call() {
+    luna-send -i "luna://com.webos.appInstallService/dev/$1" "$2" >/dev/null 2>&1 &
+    p=$!
+    sleep 10
+    kill "$p" 2>/dev/null
+}
+install_card() {
+    grep -qs "$(cat "$APP/card/version")" "/media/developer/apps/usr/palm/applications/$CARD/appinfo.json" && return
+    card_call install "{\"id\":\"$CARD\",\"ipkUrl\":\"$APP/card/card.ipk\",\"subscribe\":true}"
+}
+remove_card() { card_call remove "{\"id\":\"$CARD\",\"subscribe\":true}"; }
+
 start() {
     mkdir -p "$RUN"
+    ( trap '' HUP; install_card ) </dev/null >/dev/null 2>&1 &
     pid_running && { json true ""; return; }
     if is_blocked; then
-        json false "the Voice switch of lifesgoodwithoutspying stops the microphone"
+        json false "the microphone service is turned off"
         return
     fi
     if ! hide_lg; then
@@ -153,6 +171,11 @@ stop() {
 
 case "$1" in
     status) json true "" ;;
+    heard|typed)
+        cat "$RUN/$1" 2>/dev/null || echo '{}'
+        echo
+        rm -f "$RUN/$1"
+        ;;
     start)
         if is_enabled; then start; else json false "not enabled"; fi
         ;;
@@ -168,10 +191,11 @@ case "$1" in
     disable)
         rm -f "$CONF" "$LINK"
         stop
+        ( trap '' HUP; remove_card ) </dev/null >/dev/null 2>&1 &
         json true ""
         ;;
     *)
-        echo "usage: $0 status | enable | disable | start | stop" >&2
+        echo "usage: $0 status | enable | disable | start | stop | heard | typed" >&2
         exit 2
         ;;
 esac

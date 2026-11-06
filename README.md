@@ -1,6 +1,6 @@
 # Local Voice
 
-Speech recognition that runs on a rooted LG webOS TV. Apps with a microphone button, such as YouTube, get their text from a model on the TV instead of LG's cloud service, with no changes to the app. Audio is never saved or sent anywhere.
+Speech recognition that runs on a rooted LG webOS TV. The remote's microphone button and apps with their own, such as YouTube, get their text from a model on the TV instead of LG's cloud service, with no changes to the app. Audio is never saved or sent anywhere.
 
 Tested on one TV so far: an OLED55BX6LB (webOS 5.4.3, MR20 remote). Other models are untested.
 
@@ -8,11 +8,13 @@ Tested on one TV so far: an OLED55BX6LB (webOS 5.4.3, MR20 remote). Other models
 
 Web apps ask the TV's browser engine for speech recognition, and the engine calls LG's `com.webos.service.voiceconductor`. Local Voice stands in for that service:
 
-1. A request arrives and a **Listening** toast appears.
+1. A request or a press of the remote's button arrives and the card shows **Listening**.
 2. The service opens the remote's microphone through LG's own `voiceinput`.
 3. It stops after 1.2 s of quiet, after 7 s with no speech, or at about 10 s.
 4. Moonshine, through sherpa-onnx, turns the audio into text on the TV.
-5. The app receives the text as its speech result.
+5. An app that asked receives the text as its speech result. Otherwise it is typed through LG's input service.
+
+The card is a small companion app, `com.haywire.localvoice.card`, which Local Voice installs when it turns on and removes when it turns off.
 
 The swap lasts until a reboot: a bind mount hides LG's program and the service takes its name. Nothing in the system's folders changes. Turning Local Voice off, or a reboot with it off, puts LG's service back.
 
@@ -24,7 +26,11 @@ With [lifesgoodwithoutspying](https://github.com/lewisdoesstuff/lifesgoodwithout
 
 ## Use
 
-Press an app's microphone button, wait for **Listening**, speak, and pause. The text arrives a moment later. Each press is one phrase. The remote's own microphone button does nothing yet.
+Hold the remote's microphone button, speak, and let go. A quick press also works: it listens until you pause. A card at the bottom of the screen shows **Listening**, then **Recognising**, then what it heard, and the app beneath keeps focus throughout.
+
+The text goes into the selected text box, followed by Enter. With a text box selected, a toast shows **Listening** instead of the card, because a new window would close the on-screen keyboard and the box could no longer take text. In YouTube, whose search box is not a real text box, it starts a search. Anywhere else the card shows the words and nothing is typed.
+
+An app's own microphone button works the same way, with the text going to that app. Each press is one phrase. To try it, open **Local Voice**, whose page shows your words in a box of its own, without the keyboard or any typing. To try real typing, use a text box in another app, such as the Web Browser's address bar.
 
 ## Using it from another app
 

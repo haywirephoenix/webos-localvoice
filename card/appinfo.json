@@ -1,0 +1,16 @@
+{
+  "id": "com.haywire.localvoice.card",
+  "version": "0.2.4",
+  "vendor": "haywire",
+  "type": "web",
+  "main": "index.html",
+  "title": "Local Voice card",
+  "icon": "icon.png",
+  "visible": false,
+  "transparent": true,
+  "defaultWindowType": "floating",
+  "noSplashOnLaunch": true,
+  "spinnerOnLaunch": false,
+  "handlesRelaunch": true,
+  "disableBackHistoryAPI": true
+}

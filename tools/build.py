@@ -23,6 +23,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 CACHE = ROOT / ".cache"
 APP = "com.haywire.localvoice"
+CARD = APP + ".card"
 SHERPA = "2.0.1"
 GITHUB = "https://github.com/k2-fsa/sherpa-onnx/releases/download/"
 MODEL_DIR = "sherpa-onnx-moonshine-tiny-en-quantized-2026-02-27"
@@ -146,10 +147,10 @@ def ar(members_):
     return out
 
 
-def app_files():
-    """(path in the app, bytes, mode) for everything under app/. Text is packed with LF."""
+def app_files(folder="app"):
+    """(path in the app, bytes, mode) for everything under a folder. Text is packed with LF."""
     files = []
-    base = ROOT / "app"
+    base = ROOT / folder
     for p in sorted(base.rglob("*")):
         if p.is_file():
             rel = p.relative_to(base).as_posix()
@@ -160,21 +161,29 @@ def app_files():
     return files
 
 
+def package(app, version, files, description):
+    """An IPK of one app, and its installed size."""
+    prefix = "usr/palm/applications/%s/" % app
+    data = [(prefix + n, d, m) for n, d, m in files]
+    data.append(("usr/palm/packages/%s/packageinfo.json" % app,
+                 json.dumps({"id": app, "version": version, "app": app}, indent=1).encode(), 0o644))
+    size = sum(len(f[1]) for f in data)
+    control = ("Package: %s\nVersion: %s\nSection: misc\nPriority: optional\nArchitecture: all\nInstalled-Size: %d\n"
+               "Maintainer: haywire\nDescription: %s\n" % (app, version, size, description)).encode()
+    return ar([("debian-binary", b"2.0\n"), ("control.tar.gz", tgz([("control", control, 0o644)])), ("data.tar.gz", tgz(data))]), size
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--out", default=str(ROOT / "dist"))
     args = parser.parse_args()
     info = json.loads((ROOT / "app/appinfo.json").read_text())
     version = info["version"]
-    prefix = "usr/palm/applications/%s/" % APP
-    data = [(prefix + n, d, m) for n, d, m in app_files()]
-    data += [(prefix + "runtime/" + n, d, m) for n, d, m in runtime_files()]
-    data.append(("usr/palm/packages/%s/packageinfo.json" % APP,
-                 json.dumps({"id": APP, "version": version, "app": APP}, indent=1).encode(), 0o644))
-    size = sum(len(f[1]) for f in data)
-    control = ("Package: %s\nVersion: %s\nSection: misc\nPriority: optional\nArchitecture: all\nInstalled-Size: %d\n"
-               "Maintainer: haywire\nDescription: Speech recognition that runs on the TV\n" % (APP, version, size)).encode()
-    ipk = ar([("debian-binary", b"2.0\n"), ("control.tar.gz", tgz([("control", control, 0o644)])), ("data.tar.gz", tgz(data))])
+    card_files = app_files("card") + [("icon.png", (ROOT / "app/icon.png").read_bytes(), 0o644)]
+    card, _ = package(CARD, version, card_files, "The status card of Local Voice")
+    files = app_files() + [("runtime/" + n, d, m) for n, d, m in runtime_files()]
+    files += [("card/card.ipk", card, 0o644), ("card/version", ('"version": "%s"' % version).encode(), 0o644)]
+    ipk, size = package(APP, version, files, "Speech recognition that runs on the TV")
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     target = out / ("%s_%s_all.ipk" % (APP, version))
