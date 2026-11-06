@@ -168,7 +168,11 @@ function openMic(s) {
     log('session ' + s.id + ' no stream: ' + out.replace(/\s+/g, ' ').slice(0, 160));
     hang(l);
     s.stream = null;
-    if (s.retried) return close(s, 'no stream');
+    if (s.retried) {
+      // voiceinput does not start on demand, so something stopped it. Say so rather than go quiet.
+      toast('The microphone is not available');
+      return close(s, 'no stream');
+    }
     s.retried = true;
     stopStreaming('stale, session ' + s.id);
     s.retry = setTimeout(function () { openMic(s); }, 400);
