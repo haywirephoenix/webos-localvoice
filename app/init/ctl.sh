@@ -12,7 +12,7 @@
 #   ctl.sh tuned     how that went, once
 #   ctl.sh speech N  set the speech level by hand
 #   ctl.sh button M  how the remote's button works: none, hold or click
-#   ctl.sh model M   the speech model: tiny, which is bundled, or base, which is downloaded
+#   ctl.sh models C  speech models: see service/models.js
 #
 # The swap survives only until a reboot: a bind mount hides LG's program and the running service
 # takes its name. Nothing in the system's folders is changed.
@@ -23,11 +23,6 @@ CONF=/var/lib/webosbrew/localvoice.conf
 SPEECH=/var/lib/webosbrew/localvoice.speech
 BUTTON=/var/lib/webosbrew/localvoice.button
 MODEL=/var/lib/webosbrew/localvoice.model
-MODELS=/media/developer/localvoice
-BASE_NAME=sherpa-onnx-moonshine-base-en-quantized-2026-02-27
-BASE_URL=https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/$BASE_NAME.tar.bz2
-BASE_SHA256=43232c1d13013d37317163baec3135bd771a186a4356f28c889bab453bb0e891
-LINK=/var/lib/webosbrew/init.d/60-localvoice
 EXE=/usr/sbin/voiceconductor
 INPUT=/usr/sbin/voiceinput
 UNIT=voiceconductor.service
@@ -40,8 +35,8 @@ CLAIM=/tmp/lifesgoodwithoutspying.claim.$NAME
 STANDIN=/tmp/lifesgoodwithoutspying.answer.$NAME.pid
 export NODE_PATH=/usr/lib/nodejs
 
-json() { printf '{"ok":%s,"enabled":%s,"running":%s,"blocked":%s,"speech":%s,"button":"%s","model":"%s","modelState":"%s","error":"%s"}\n' "$1" "$(enabled_json)" "$(running_json)" "$(blocked_json)" "$(speech_json)" "$(button_json)" "$(model_json)" "$(cat "$RUN/model-state" 2>/dev/null)" "$2"; }
-model_json() { [ -s "$MODEL" ] && cat "$MODEL" || echo tiny; }
+json() { printf '{"ok":%s,"enabled":%s,"running":%s,"blocked":%s,"speech":%s,"button":"%s","model":"%s","error":"%s"}\n' "$1" "$(enabled_json)" "$(running_json)" "$(blocked_json)" "$(speech_json)" "$(button_json)" "$(model_json)" "$2"; }
+model_json() { cat "$RUN/engine-model" 2>/dev/null; }
 button_json() { [ -s "$BUTTON" ] && cat "$BUTTON" || echo hold; }
 speech_json() { [ -s "$SPEECH" ] && cat "$SPEECH" || echo 150; }
 is_enabled() { grep -q '^enabled=1$' "$CONF" 2>/dev/null; }
@@ -120,33 +115,9 @@ install_card() {
 }
 remove_card() { card_call remove "{\"id\":\"$CARD\",\"subscribe\":true}"; }
 
-restart_engine() {
-    [ -f "$RUN/engine.pid" ] && kill "$(cat "$RUN/engine.pid")" 2>/dev/null
-}
-# Runs in the background, as the page cannot wait for it. Only a download with the pinned checksum
-# is used.
-get_base() {
-    mkdir -p "$MODELS/new"
-    echo downloading > "$RUN/model-state"
-    if curl -sSfL -o "$MODELS/new/model.tar.bz2" "$BASE_URL" \
-        && echo "$BASE_SHA256  $MODELS/new/model.tar.bz2" | sha256sum -c - >/dev/null 2>&1 \
-        && echo unpacking > "$RUN/model-state" \
-        && tar -xjf "$MODELS/new/model.tar.bz2" -C "$MODELS/new" --strip-components=1 \
-            "$BASE_NAME/encoder_model.ort" "$BASE_NAME/decoder_model_merged.ort" "$BASE_NAME/tokens.txt" "$BASE_NAME/LICENSE"; then
-        rm -f "$MODELS/new/model.tar.bz2"
-        rm -rf "$MODELS/base"
-        mv "$MODELS/new" "$MODELS/base"
-        echo base > "$MODEL"
-        rm -f "$RUN/model-state"
-        restart_engine
-    else
-        rm -rf "$MODELS/new"
-        echo failed > "$RUN/model-state"
-    fi
-}
-
 start() {
     mkdir -p "$RUN"
+    node "$APP/service/models.js" migrate >/dev/null 2>&1
     ( trap '' HUP; install_card ) </dev/null >/dev/null 2>&1 &
     pid_running && { json true ""; return; }
     if is_blocked; then
@@ -234,27 +205,15 @@ case "$1" in
             *) json false "not a button mode" ;;
         esac
         ;;
-    model)
+    # Node takes over 2 s to start on the TV, too long to poll, so progress is read from here.
+    modelstate)
+        printf '{"free":%s,"chosen":"%s","running":"%s","job":%s}
+'             "$(df -m /media/developer | awk 'END { print $(NF - 2) }')" "$(cat "$MODEL" 2>/dev/null)"             "$(cat "$RUN/engine-model" 2>/dev/null)" "$(cat "$RUN/model-job" 2>/dev/null || echo null)"
+        ;;
+    models)
         mkdir -p "$RUN"
-        case "$2" in
-            tiny)
-                rm -f "$MODEL" "$RUN/model-state"
-                rm -rf "$MODELS"
-                restart_engine
-                json true ""
-                ;;
-            base)
-                if [ -f "$MODELS/base/encoder_model.ort" ]; then
-                    echo base > "$MODEL"
-                    restart_engine
-                elif ! grep -qs -e downloading -e unpacking "$RUN/model-state"; then
-                    ( trap '' HUP; get_base ) </dev/null >/dev/null 2>&1 &
-                    echo downloading > "$RUN/model-state"
-                fi
-                json true ""
-                ;;
-            *) json false "not a model" ;;
-        esac
+        shift
+        node "$APP/service/models.js" "$@"
         ;;
     start)
         if is_enabled; then start; else json false "not enabled"; fi
@@ -275,7 +234,7 @@ case "$1" in
         json true ""
         ;;
     *)
-        echo "usage: $0 status | enable | disable | start | stop | heard | typed | tune | tuned | speech N | button M | model M" >&2
+        echo "usage: $0 status | enable | disable | start | stop | heard | typed | tune | tuned | speech N | button M | models C | modelstate" >&2
         exit 2
         ;;
 esac

@@ -6,16 +6,16 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main>
+  <main id="main">
     <h1>Local Voice</h1>
     <p class="lead">Speech recognition that runs on this TV. Nothing you say leaves the TV.</p>
     <div class="row">
       <button id="toggle" disabled>Checking…</button>
       <button id="mode">Microphone button</button>
-      <button id="model">Speech model</button>
+      <button id="model">Speech models</button>
     </div>
     <p id="status" role="status"></p>
-    <p id="modelNote" class="note">Tiny is quick and small. Base is a 111 MB download that takes about twice as long and needs about 190 MB more memory. It may hear short or unusual words better.</p>
+    <p id="modelNote" class="note"></p>
 
     <h2>Try it</h2>
     <p>Hold the remote's microphone button, speak and let go.</p>
@@ -33,7 +33,15 @@
 
     <p class="note">Voice also works in other text boxes, in YouTube, and with an app's own microphone button.</p>
   </main>
+  <section id="panel">
+    <h1>Speech models</h1>
+    <p id="space" class="lead"></p>
+    <div id="loading"><i class="spinner"></i>Loading models</div>
+    <div id="list"></div>
+    <button id="closePanel">Close</button>
+  </section>
   <script src="level.js"></script>
+  <script src="modelview.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

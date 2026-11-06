@@ -19,9 +19,9 @@ var APP = path.dirname(__dirname), RUNTIME = path.join(APP, 'runtime');
 var RUN = '/tmp/localvoice', LOG = RUN + '/log.txt';
 var CONF = '/var/lib/webosbrew/localvoice.conf';
 var SPEECH = '/var/lib/webosbrew/localvoice.speech';  // the speech level, if set
-var MODEL = '/var/lib/webosbrew/localvoice.model';    // base, if chosen over the bundled tiny model
-var BASE_MODEL = '/media/developer/localvoice/base';  // ctl.sh downloads it here
-var ENGINE_PID = RUN + '/engine.pid';                 // ctl.sh restarts the engine to change model
+var MODEL = '/var/lib/webosbrew/localvoice.model';    // the chosen model's id
+var MODELS = '/media/developer/localvoice/models';    // models.js downloads them here
+var ENGINE_MODEL = RUN + '/engine-model';             // which model has loaded
 var BUTTON = '/var/lib/webosbrew/localvoice.button';  // none or click, if not the default of hold
 var TUNE = RUN + '/tune', TUNED = RUN + '/tuned';    // asks for the next phrase to set it, and the outcome
 var TUNE_WAIT = 60000;
@@ -123,25 +123,28 @@ function blocked() {
 
 var engine = {child: null, ready: false, waiting: null, next: null, timer: null, fails: 0, started: 0};
 
-// The larger model may not fit beside what the TV is running. If it keeps failing, the bundled
-// one takes over, so that voice still works.
+// A model may not fit beside what the TV is running. If the chosen one keeps failing, another that
+// is on the TV takes over, so that voice still works.
 function modelDir() {
+  var chosen = '', all = [];
+  try { chosen = fs.readFileSync(MODEL, 'utf8').trim(); } catch (e) {}
   try {
-    if (engine.fails < 2 && fs.readFileSync(MODEL, 'utf8').trim() === 'base' && fs.existsSync(BASE_MODEL + '/encoder_model.ort')) return BASE_MODEL;
+    all = fs.readdirSync(MODELS).filter(function (m) { return fs.existsSync(path.join(MODELS, m, 'encoder_model.ort')); });
   } catch (e) {}
-  return path.join(RUNTIME, 'model');
+  if (engine.fails < 2 && all.indexOf(chosen) >= 0) return chosen;
+  return all.filter(function (m) { return m !== chosen; })[0] || '';
 }
 function startEngine() {
   var lib = path.join(RUNTIME, 'lib'), model = modelDir();
+  if (!model) return log('no speech model on the TV');
   var c = cp.spawn(path.join(lib, 'ld-linux-armhf.so.3'),
-    ['--library-path', lib, path.join(RUNTIME, 'bin/lvengine'), model],
+    ['--library-path', lib, path.join(RUNTIME, 'bin/lvengine'), path.join(MODELS, model)],
     {stdio: ['pipe', 'pipe', 'pipe']});
   var out = '';
   engine.child = c;
   engine.ready = false;
   engine.started = Date.now();
-  log('engine starting with ' + path.basename(model) + ' model');
-  try { fs.writeFileSync(ENGINE_PID, String(c.pid)); } catch (e) {}
+  log('engine starting with ' + model);
   c.stdin.on('error', function () {});
   // The TV's /etc/ld.so.preload names a library our loader cannot use, which is harmless.
   c.stderr.on('data', function (d) {
@@ -158,6 +161,7 @@ function startEngine() {
         engine.ready = true;
         engine.fails = 0;
         log('engine ready after ' + (Date.now() - engine.started) + 'ms');
+        try { fs.writeFileSync(ENGINE_MODEL, model); } catch (e) {}
       } else if (line.indexOf('TEXT ') === 0) {
         decoded(null, line.slice(5));
       }
@@ -448,7 +452,7 @@ function start(m) {
   send(s, {event: 'registered'});
   send(s, {event: 'sttStart'});
   if (blocked()) return fail(s, BLOCKED, 'blocked');
-  if (!engine.ready) return fail(s, 'Voice is starting, try again in a moment', 'engine not ready');
+  if (!engine.ready) return fail(s, engine.child ? 'Voice is starting, try again in a moment' : 'Open Local Voice to download a speech model', 'engine not ready');
   status(s, 'listening', 'Listening');
   openMic(s);
 }
@@ -530,6 +534,13 @@ function watchField() {
 function endWatch() { if (watcher) watcher.kill(); }
 process.on('exit', endWatch);
 process.on('SIGTERM', function () { process.exit(0); });
+// models.js sends this when the chosen model changes.
+process.on('SIGUSR2', function () {
+  engine.fails = 0;
+  try { fs.unlinkSync(ENGINE_MODEL); } catch (e) {}
+  if (engine.child) engine.child.kill();
+  else startEngine();
+});
 
 // --- the bus -------------------------------------------------------------------------------
 

@@ -1,5 +1,6 @@
 html, body { margin: 0; height: 100%; background: #101418; color: #eef1f4; font-family: "LG Smart UI", Arial, sans-serif; }
-main { box-sizing: border-box; width: 1200px; margin: 0 auto; padding: 64px 0 0; }
+main, #panel { box-sizing: border-box; width: 1200px; margin: 0 auto; padding: 64px 0 0; }
+#panel { display: none; }
 h1 { margin: 0 0 8px; font-size: 48px; font-weight: 600; }
 h2 { margin: 36px 0 8px; font-size: 28px; font-weight: 600; }
 p { margin: 0; font-size: 26px; line-height: 1.35; }
@@ -26,3 +27,20 @@ button:disabled { color: #8f9aa5; }
 #test { box-sizing: border-box; min-height: 70px; padding: 16px 24px; border: 3px solid #5b6672; border-radius: 12px; background: #1d242b; font-size: 28px; }
 #test.empty { color: #8f9aa5; }
 .error { color: #ffb4a8; }
+.model { margin-bottom: 28px; padding: 20px 24px; border: 3px solid #5b6672; border-radius: 12px; background: #1d242b; }
+.model h2 { margin: 0 0 6px; }
+.model button { height: 56px; min-width: 180px; margin-top: 12px; padding: 0 24px; background: #101418; }
+.model button:focus { background: #2f6fed; }
+.facts { font-size: 22px; color: #c4ccd4; }
+.url { font-size: 18px; color: #8f9aa5; word-break: break-all; }
+.bar { height: 14px; margin-top: 12px; overflow: hidden; border-radius: 7px; background: #101418; }
+.bar i { display: block; height: 100%; background: #2f6fed; -webkit-transform: scaleX(0); transform: scaleX(0); -webkit-transform-origin: left; transform-origin: left; transition: -webkit-transform .4s linear, transform .4s linear; }
+.progress { margin-top: 8px; font-size: 22px; }
+#loading { display: none; align-items: center; padding: 40px 0; font-size: 26px; color: #c4ccd4; }
+.spinner { display: block; width: 44px; height: 44px; margin-right: 20px; box-sizing: border-box; border: 5px solid #5b6672; border-top-color: #eef1f4; border-radius: 50%; animation: spin 1s linear infinite; }
+@keyframes spin { to { -webkit-transform: rotate(360deg); transform: rotate(360deg); } }
+.model button.busy { color: #c4ccd4; }
+.dots i { font-style: normal; animation: blink 1.2s infinite; }
+.dots i:nth-child(2) { animation-delay: .2s; }
+.dots i:nth-child(3) { animation-delay: .4s; }
+@keyframes blink { 0%, 60%, 100% { opacity: .15; } 30% { opacity: 1; } }

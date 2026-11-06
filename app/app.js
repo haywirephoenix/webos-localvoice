@@ -53,18 +53,9 @@
     showMode(next);
     ctl('button ' + next, function () {});
   }
-  // Base is downloaded on first use, in the background, and removed on going back to Tiny.
-  var MODEL_STATES = {downloading: 'Base: downloading…', unpacking: 'Base: unpacking…', failed: 'Base: download failed'};
   function showModel(a) {
-    model.textContent = MODEL_STATES[a.modelState] || 'Speech model: ' + (a.model === 'base' ? 'Base' : 'Tiny');
-    if (a.modelState === 'failed') modelNote.textContent = 'The download failed. Check the TV\'s connection and press again to retry.';
-  }
-  function chooseModel() {
-    if (!state) return;
-    var want = state.model === 'base' ? 'tiny' : 'base';
-    if (state.modelState === 'downloading' || state.modelState === 'unpacking') return;
-    model.textContent = want === 'base' ? 'Base: downloading…' : 'Speech model: Tiny';
-    ctl('model ' + want, function (a) { if (a) show(a); });
+    modelNote.textContent = a.model ? 'Using ' + a.model + '.' : 'No speech model is loaded. Open Speech models to download one.';
+    modelNote.className = a.model ? 'note' : 'note error';
   }
   function showSpeech(value) {
     speechLevel = value;
@@ -141,19 +132,21 @@
       if (!same) show(a);
     });
   }
+  function navigation() { return window.ModelView.isOpen() ? window.ModelView.rows() : rows; }
   // Where the focus is, as [row, column], if on a button.
   function place() {
-    for (var r = 0; r < rows.length; r++) {
-      var c = rows[r].indexOf(document.activeElement);
+    var all = navigation();
+    for (var r = 0; r < all.length; r++) {
+      var c = all[r].indexOf(document.activeElement);
       if (c >= 0) return [r, c];
     }
     return null;
   }
   // Left and right stay in a row and up and down change row, stopping at the edges.
   function move(rowBy, columnBy) {
-    var at = place();
-    if (!at) return button.focus();
-    var row = rows[Math.max(0, Math.min(rows.length - 1, at[0] + rowBy))];
+    var at = place(), all = navigation();
+    if (!at) return all[0][0].focus();
+    var row = all[Math.max(0, Math.min(all.length - 1, at[0] + rowBy))];
     row[Math.max(0, Math.min(row.length - 1, at[1] + columnBy))].focus();
   }
   // Steps of a tenth, to the nearest ten, within what the service accepts.
@@ -177,7 +170,12 @@
     run(state && state.enabled ? 'disable' : state ? 'enable' : 'status');
   });
   mode.addEventListener('click', nextMode);
-  model.addEventListener('click', chooseModel);
+  model.addEventListener('click', function () {
+    window.ModelView.open(ctl, function () {
+      model.focus();
+      refresh();
+    });
+  });
   less.addEventListener('click', function () { nudge(-1); });
   more.addEventListener('click', function () { nudge(1); });
   tune.addEventListener('click', function () {
@@ -186,12 +184,15 @@
     ctl('tune', function () {});
   });
   document.addEventListener('keydown', function (e) {
-    if (e.keyCode === 461 || e.keyCode === 27) window.close();
+    if (e.keyCode === 461 || e.keyCode === 27) {
+      if (window.ModelView.isOpen()) window.ModelView.close();
+      else window.close();
+    }
     else if (e.keyCode === 37) move(0, -1);
     else if (e.keyCode === 39) move(0, 1);
     else if (e.keyCode === 38) move(-1, 0);
     else if (e.keyCode === 40) move(1, 0);
-    else if (!place()) button.focus();
+    else if (!place()) navigation()[0][0].focus();
   });
   document.addEventListener('visibilitychange', refresh);
   document.addEventListener('webOSRelaunch', refresh);

@@ -14,7 +14,7 @@ Web apps ask the TV's browser engine for speech recognition, and the engine call
 4. Moonshine, through sherpa-onnx, turns the audio into text on the TV.
 5. An app that asked receives the text as its speech result. Otherwise it is typed through LG's input service.
 
-Speech is recognised by Moonshine tiny, which comes with the app. **Speech model** on the app's page swaps it for Moonshine base, downloaded from the sherpa-onnx releases on first use (111 MB, checked against a pinned SHA-256, kept in `/media/developer/localvoice`). Base takes about twice as long and about 300 MB of memory against 120 MB. It may hear short or unusual words better. If it keeps failing, voice falls back to tiny. Going back to **Tiny** deletes the download, so do that before uninstalling.
+The package holds no speech model. **Speech models** on the app's page lists the models in `app/models.json` with their download size, memory use and address, and downloads one when asked, showing its progress and the free disk space. Each download is checked against a pinned SHA-256. Models live in `/media/developer/localvoice`, so delete them there or in the app before uninstalling. The list is fixed on purpose: the engine runs as root and parses these files, so an address from elsewhere could run anything. If the chosen model keeps failing, another on the TV takes over.
 
 The card is a small companion app, `com.haywire.localvoice.card`, which Local Voice installs when it turns on and removes when it turns off.
 
@@ -64,9 +64,9 @@ pip install ziglang
 python tools/build.py
 ```
 
-`tools/build.py` downloads the engine, model and libraries into `.cache`, checks each against a pinned SHA-256, compiles `native/lvengine.c` for 32-bit ARM, and writes `dist/com.haywire.localvoice_<version>_all.ipk`.
+`tools/build.py` downloads the engine and libraries into `.cache`, checks each against a pinned SHA-256, compiles `native/lvengine.c` for 32-bit ARM, and writes `dist/com.haywire.localvoice_<version>_all.ipk`.
 
-Run the tests with `node tests/detector.test.js` and `node tests/ctl.test.js`.
+Run the tests with `node tests/detector.test.js`, `node tests/ctl.test.js` and `node tests/models.test.js`.
 
 ## Debugging
 

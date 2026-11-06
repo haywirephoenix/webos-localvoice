@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build dist/com.haywire.localvoice_<version>_all.ipk.
 
-Downloads the engine, the model and the C libraries into .cache (each pinned to a checksum),
+Downloads the engine and the C libraries into .cache (each pinned to a checksum),
 compiles native/lvengine.c for 32-bit ARM and packs the IPK.
 
 Needs Python 3 and zig (pip install ziglang).
@@ -32,12 +32,9 @@ APP = "com.haywire.localvoice"
 CARD = APP + ".card"
 SHERPA = "2.0.1"
 GITHUB = "https://github.com/k2-fsa/sherpa-onnx/releases/download/"
-MODEL_DIR = "sherpa-onnx-moonshine-tiny-en-quantized-2026-02-27"
 SOURCES = {
     "sherpa": (GITHUB + "v%s/sherpa-onnx-v%s-linux-arm-gnueabihf-shared.tar.bz2" % (SHERPA, SHERPA),
                "099c6bc956b26df246712ff9902419ff9cbc938c014177ea3e205b32675b48d5"),
-    "model": (GITHUB + "asr-models/%s.tar.bz2" % MODEL_DIR,
-              "9ec31b342d8fa3240c3b81b8f82e1cf7e3ac467c93ca5a999b741d5887164f8d"),
     "ubuntu": ("https://cdimage.ubuntu.com/ubuntu-base/releases/22.04/release/ubuntu-base-22.04.5-base-armhf.tar.gz",
                "fd77cb0659326b75c08ce06b6b8649d2e13ef9a704a8e9212fec32cb97d42add"),
     "header": ("https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/v%s/sherpa-onnx/c-api/c-api.h" % SHERPA,
@@ -75,7 +72,6 @@ SUMMARY = "Speech recognition that runs on the TV, for the remote's microphone b
 UBUNTU_LIBS = ["ld-linux-armhf.so.3", "libc.so.6", "libm.so.6", "libdl.so.2", "libpthread.so.0", "librt.so.1",
                "libgcc_s.so.1", "libstdc++.so.6"]
 SHERPA_LIBS = ["libonnxruntime.so", "libsherpa-onnx-c-api.so"]
-MODEL_FILES = ["encoder_model.ort", "decoder_model_merged.ort", "tokens.txt", "LICENSE"]
 EXECUTABLE = ("init/ctl.sh", "init/boot.sh")
 
 
@@ -116,7 +112,7 @@ def ubuntu_lib(tar, index, name):
 
 
 def runtime_files():
-    """(path under runtime/, bytes, mode) for the engine, its libraries and the model."""
+    """(path under runtime/, bytes, mode) for the engine and its libraries."""
     exe = 0o755
     files = []
     with tarfile.open(fetch("sherpa")) as tar:
@@ -131,10 +127,6 @@ def runtime_files():
             files.append(("lib/" + name, ubuntu_lib(tar, index, name), mode))
         for path, name in UBUNTU_LICENCES.items():
             files.append(("licences/" + name, tar.extractfile(index[path]).read(), 0o644))
-    with tarfile.open(fetch("model")) as tar:
-        index = members(tar)
-        for name in MODEL_FILES:
-            files.append(("model/" + name, tar.extractfile(index[MODEL_DIR + "/" + name]).read(), 0o644))
     for name in LICENCES:
         files.append(("licences/" + name, fetch(name).read_bytes(), 0o644))
     files.append(("licences/THIRD-PARTY.md", (ROOT / "THIRD-PARTY.md").read_bytes().replace(b"\r\n", b"\n"), 0o644))
