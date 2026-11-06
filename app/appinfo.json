@@ -1,6 +1,6 @@
 {
   "id": "com.haywire.localvoice",
-  "version": "0.2.4",
+  "version": "0.3.0",
   "vendor": "haywire",
   "type": "web",
   "main": "index.html",
@@ -8,5 +8,6 @@
   "icon": "icon.png",
   "largeIcon": "largeIcon.png",
   "resolution": "1920x1080",
-  "disableBackHistoryAPI": true
+  "disableBackHistoryAPI": true,
+  "appDescription": "Speech recognition that runs on the TV"
 }

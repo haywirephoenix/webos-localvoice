@@ -20,7 +20,13 @@ The swap lasts until a reboot: a bind mount hides LG's program and the service t
 
 ## Install
 
-Needs root and the Homebrew Channel. Install the `.ipk` through the Homebrew Channel or `ares-install`, open **Local Voice** and choose **Turn on**.
+Needs root and the Homebrew Channel.
+
+1. In Homebrew Channel, open **Settings**, choose **Add repository** and enter `https://haywirephoenix.github.io/webos-localvoice/apps.json`.
+2. Install **Local Voice** from the list of apps. Updates appear there too.
+3. Open **Local Voice** and choose **Turn on**.
+
+Or download the `.ipk` from [Releases](https://github.com/haywirephoenix/webos-localvoice/releases) and install it with `ares-install`. After an update, turn Local Voice off and on again.
 
 With [lifesgoodwithoutspying](https://github.com/lewisdoesstuff/lifesgoodwithoutspying), its **Voice** switch also stops `voiceinput`, which supplies the microphone. Turn on its **Keep microphone service** setting to leave `voiceinput` running while LG's other voice services stay stopped. Local Voice never overrides that app: while `voiceinput` is stopped, the app and the press of a microphone button say so, and voice resumes by itself once it is back. Turning Local Voice off leaves that app's stubs in place, and LG's service only returns if nothing else is hiding it. Turn Local Voice off before removing the app.
 
