@@ -10,6 +10,8 @@ The IPK contains these, unchanged, in `runtime/`. Their licence texts are in `ru
 
 Speech models are not in the IPK. Moonshine (MIT, [moonshine-ai/moonshine](https://github.com/moonshine-ai/moonshine)), in the sherpa-onnx exports listed in `app/models.json`, is downloaded to the TV only if chosen, with its `LICENSE` beside it.
 
+`runtime/bin/lvengine` is not third-party: it is built from `native/lvengine.c` in this repository, under its MIT licence, and links to the libraries above.
+
 The C libraries are there because the sherpa-onnx build needs a newer glibc than the TV has. They are used only by the recogniser, through their own loader, and nothing in the TV's system folders changes.
 
 The way the remote's microphone is opened, and the silence rules, follow [cleanyourtv-WebOS](https://github.com/lasharor/cleanyourtv-WebOS) (MIT). Taking a service's name with a stub follows [lifesgoodwithoutspying](https://github.com/lewisdoesstuff/lifesgoodwithoutspying).
