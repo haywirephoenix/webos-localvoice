@@ -21,7 +21,8 @@
   var more = document.getElementById('more');
   var model = document.getElementById('model');
   var modelNote = document.getElementById('modelNote');
-  var rows = [[button, mode, model], [tune, less, more]];   // as they are laid out, for the arrow keys
+  var debugButton = document.getElementById('debug');
+  var rows = [[button, mode, model], [tune, less, more], [debugButton]];   // as they are laid out, for the arrow keys
   var MODES = ['hold', 'click', 'none'];
   var MODE_NAMES = {none: 'None', hold: 'Hold', click: 'Click or Hold'};
   var TUNE_WAIT = 60000;   // as the service: an unused request to tune lapses
@@ -90,6 +91,7 @@
     if (a && a.speech) showSpeech(a.speech);
     if (a && MODES.indexOf(a.button) >= 0) showMode(a.button);
     if (a) showModel(a);
+    if (a) debugButton.textContent = 'Debug log: ' + (a.debug ? 'On' : 'Off');
     busy = false;
     button.disabled = false;
     status.className = '';
@@ -170,6 +172,11 @@
     run(state && state.enabled ? 'disable' : state ? 'enable' : 'status');
   });
   mode.addEventListener('click', nextMode);
+  debugButton.addEventListener('click', function () {
+    if (!state) return;
+    debugButton.textContent = 'Debug log: ' + (state.debug ? 'Off' : 'On');
+    ctl('debug ' + (state.debug ? 'off' : 'on'), function (a) { if (a) show(a); });
+  });
   model.addEventListener('click', function () {
     window.ModelView.open(ctl, function () {
       model.focus();

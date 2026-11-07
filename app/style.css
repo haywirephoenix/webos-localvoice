@@ -2,7 +2,7 @@ html, body { margin: 0; height: 100%; background: #101418; color: #eef1f4; font-
 main, #panel { box-sizing: border-box; width: 1200px; margin: 0 auto; padding: 64px 0 0; }
 #panel { display: none; }
 h1 { margin: 0 0 8px; font-size: 48px; font-weight: 600; }
-h2 { margin: 36px 0 8px; font-size: 28px; font-weight: 600; }
+h2 { margin: 30px 0 8px; font-size: 28px; font-weight: 600; }
 p { margin: 0; font-size: 26px; line-height: 1.35; }
 .lead { color: #c4ccd4; margin-bottom: 28px; }
 .note { margin-top: 14px; color: #8f9aa5; font-size: 22px; }
@@ -15,6 +15,7 @@ button:disabled { color: #8f9aa5; }
 #mode { width: 470px; padding: 0; }
 #model { width: 400px; padding: 0; margin-right: 0; }
 #tune { width: 300px; padding: 0; }
+#debug { width: 300px; padding: 0; }
 .step { width: 68px; padding: 0; font-size: 34px; }
 #speech { width: 220px; text-align: center; font-size: 26px; }
 #status { min-height: 34px; margin-top: 16px; font-size: 24px; }

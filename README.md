@@ -16,6 +16,8 @@ Web apps ask the TV's browser engine for speech recognition, and the engine call
 
 The package holds no speech model. **Speech models** on the app's page lists the models in `app/models.json` with their download size, memory use and address, and downloads one when asked, showing its progress and the free disk space. Each download is checked against a pinned SHA-256. Models live in `/media/developer/localvoice`, so delete them there or in the app before uninstalling. The list is fixed on purpose: the engine runs as root and parses these files, so an address from elsewhere could run anything. If the chosen model keeps failing, another on the TV takes over.
 
+Nothing about what you say or do is logged unless **Debug log** is turned on in the app. Then each phrase is logged to `/tmp/localvoice/log.txt`, readable by root only, with its words, the app it went to and its levels, until the TV restarts. Turning it off deletes the log. Problems, such as the engine failing to start, are always logged, without any of that.
+
 The card is a small companion app, `com.haywire.localvoice.card`, which Local Voice installs when it turns on and removes when it turns off.
 
 The swap lasts until a reboot: a bind mount hides LG's program and the service takes its name. Nothing in the system's folders changes. Turning Local Voice off, or a reboot with it off, puts LG's service back.

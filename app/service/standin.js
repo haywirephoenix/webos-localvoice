@@ -52,25 +52,37 @@ var MAX_LOG = 1 << 18;
 var TARGET_PEAK = 20000;    // a quiet voice is raised to about this before recognition
 var MAX_GAIN = 8;
 
-// What was said is only logged with debug=1 in localvoice.conf.
-var debug = false;
-try { debug = /^debug=1$/m.test(fs.readFileSync(CONF, 'utf8')); } catch (e) {}
+// Nothing about what you do is logged unless the debug log is turned on in the app. Then each
+// phrase is logged, with its words, the app it went to and its levels, until the TV restarts or
+// the log is turned off, which deletes it. Problems are always logged, and never say any of that.
+var DEBUG = '/var/lib/webosbrew/localvoice.debug';
+var DEBUG_CHECK = 3000;
+var debugAt = 0, debugNow = false;
+function debug() {
+  if (Date.now() - debugAt > DEBUG_CHECK) {
+    debugAt = Date.now();
+    debugNow = fs.existsSync(DEBUG);
+  }
+  return debugNow;
+}
 
 var t0 = Date.now();
-function log(s) {
+function write(s) {
   try {
     if (fs.existsSync(LOG) && fs.statSync(LOG).size > MAX_LOG) fs.renameSync(LOG, LOG + '.old');
-    fs.appendFileSync(LOG, ((Date.now() - t0) / 1000).toFixed(2) + 's ' + s + '\n');
+    fs.appendFileSync(LOG, ((Date.now() - t0) / 1000).toFixed(2) + 's ' + s + '\n', {mode: 384});
   } catch (e) {}
 }
-process.on('uncaughtException', function (e) { log('uncaught: ' + (e && e.stack || e)); process.exit(1); });
+function log(s) { if (debug()) write(s); }
+function warn(s) { write(s); }
+process.on('uncaughtException', function (e) { warn('uncaught: ' + (e && e.stack || e)); process.exit(1); });
 var palmbus = require('palmbus');
 
 function toast(message) {
   cp.execFile('luna-send', ['-n', '1', 'luna://com.webos.notification/createToast',
     JSON.stringify({sourceId: APP_ID, message: message, noaction: true})],
     {timeout: 8000}, function (err) {
-      if (err) log('toast failed: ' + String(err).slice(0, 120));
+      if (err) warn('toast failed: ' + String(err).slice(0, 120));
     });
 }
 
@@ -80,7 +92,7 @@ function bus(uri, body, done) {
   c.addListener('response', function (msg) {
     var o = {};
     try { o = JSON.parse(msg.payload()); } catch (e) {}
-    if (o.returnValue === false) log(uri.split('/').pop() + ' failed: ' + String(msg.payload()).replace(/\s+/g, ' ').slice(0, 120));
+    if (o.returnValue === false) warn(uri.split('/').pop() + ' failed: ' + String(msg.payload()).replace(/\s+/g, ' ').slice(0, 120));
     hang(c);
     if (done) done(o);
   });
@@ -101,7 +113,7 @@ function status(s, state, message) {
   else if (state !== 'recognising') toast(message);
 }
 function keep(file, text) {
-  try { fs.writeFileSync(file, JSON.stringify({text: text}), {mode: 384}); } catch (e) { log('heard: ' + e); }
+  try { fs.writeFileSync(file, JSON.stringify({text: text}), {mode: 384}); } catch (e) { warn('heard: ' + e); }
   setTimeout(function () { try { fs.unlinkSync(file); } catch (e) {} }, HEARD_KEEP);
 }
 function showHeard(text, hint) {
@@ -136,7 +148,7 @@ function modelDir() {
 }
 function startEngine() {
   var lib = path.join(RUNTIME, 'lib'), model = modelDir();
-  if (!model) return log('no speech model on the TV');
+  if (!model) return warn('no speech model on the TV');
   var c = cp.spawn(path.join(lib, 'ld-linux-armhf.so.3'),
     ['--library-path', lib, path.join(RUNTIME, 'bin/lvengine'), path.join(MODELS, model)],
     {stdio: ['pipe', 'pipe', 'pipe']});
@@ -149,7 +161,7 @@ function startEngine() {
   // The TV's /etc/ld.so.preload names a library our loader cannot use, which is harmless.
   c.stderr.on('data', function (d) {
     var text = String(d).trim();
-    if (text && !/libSegFault/.test(text)) log('engine: ' + text.slice(0, 200));
+    if (text && !/libSegFault/.test(text)) warn('engine: ' + text.slice(0, 200));
   });
   c.stdout.on('data', function (d) {
     out += d;
@@ -167,13 +179,13 @@ function startEngine() {
       }
     }
   });
-  c.on('error', function (e) { log('engine failed to start: ' + e); });
+  c.on('error', function (e) { warn('engine failed to start: ' + e); });
   c.on('close', function (code) {
-    log('engine exited: ' + code);
+    warn('engine exited: ' + code);
     engine.child = null;
     engine.ready = false;
     decoded(new Error('engine exited'));
-    if (++engine.fails > 5) return log('engine gave up');
+    if (++engine.fails > 5) return warn('engine gave up');
     setTimeout(startEngine, 3000);
   });
 }
@@ -227,7 +239,7 @@ function finishTuning(s) {
     if (o.level) fs.writeFileSync(SPEECH, o.level + '\n');
     fs.writeFileSync(TUNED, JSON.stringify(o));
     fs.unlinkSync(TUNE);
-  } catch (e) { log('tuning: ' + e); }
+  } catch (e) { warn('tuning: ' + e); }
 }
 
 // Pages showing how loud the voice is subscribe here. Only the level is sent, never any audio.
@@ -253,7 +265,7 @@ function send(s, o) {
   o.returnValue = true;
   o.subscribed = true;
   o.voiceTicket = s.ticket;
-  try { s.message.respond(JSON.stringify(o)); } catch (e) { log('reply failed: ' + e); }
+  try { s.message.respond(JSON.stringify(o)); } catch (e) { warn('reply failed: ' + e); }
 }
 
 // voiceinput only lets the client that started a stream stop it, and otherwise runs to its 10 s
@@ -262,7 +274,7 @@ function stopStreaming(why) {
   var c = handles[0].call(VOICEINPUT + 'stopStreaming', MIC);
   c.addListener('response', function (msg) {
     var p = String(msg.payload());
-    if (!/"returnValue":\s*true/.test(p)) log('stopStreaming (' + why + '): ' + p.replace(/\s+/g, ' ').slice(0, 120));
+    if (!/"returnValue":\s*true/.test(p)) warn('stopStreaming (' + why + '): ' + p.replace(/\s+/g, ' ').slice(0, 120));
     hang(c);
   });
 }
@@ -301,7 +313,7 @@ function openMic(s) {
   clearTimeout(s.noReply);
   s.noReply = setTimeout(function () {
     if (s.closed || s.socketSeen || s.state !== 'listening') return;
-    log('session ' + s.id + ' no stream: ' + out.replace(/\s+/g, ' ').slice(0, 160));
+    warn('session ' + s.id + ' no stream: ' + out.replace(/\s+/g, ' ').slice(0, 160));
     hang(l);
     s.stream = null;
     if (s.retried) {
@@ -316,7 +328,7 @@ function openMic(s) {
     out += msg.payload();
     if (/Unknown method/.test(out)) {
       // Something else answers for voiceinput: retrying cannot help.
-      log('session ' + s.id + ' no microphone service: ' + out.replace(/\s+/g, ' ').slice(0, 120));
+      warn('session ' + s.id + ' no microphone service: ' + out.replace(/\s+/g, ' ').slice(0, 120));
       return fail(s, blocked() ? BLOCKED : 'The microphone is not available', 'no microphone service');
     }
     if (/fail to find voice device/.test(out)) {
@@ -362,7 +374,7 @@ function connect(s) {
       s.windows.push(w);
       for (var i = 0; i < WINDOW; i += 2) sum += Math.abs(w.readInt16LE(i));
       var mean = sum / (WINDOW / 2), n = s.windows.length;
-      if (debug && n <= LEVEL_LOG) {
+      if (debug() && n <= LEVEL_LOG) {
         s.levels.push(Math.round(mean));
         if (n === LEVEL_LOG) log('session ' + s.id + ' levels ' + s.levels.join(' '));
       }
@@ -401,7 +413,7 @@ function capture(s, why) {
   var t = Date.now();
   decode(pcm, function (err, text) {
     log('session ' + s.id + ' (' + why + ') ' + (pcm.length / 2 / 16000).toFixed(2) + ' s decoded in ' + (Date.now() - t) + 'ms' +
-      (err ? ': ' + err : debug ? ': ' + JSON.stringify(text) : ''));
+      (err ? ': ' + err : debug() ? ': ' + JSON.stringify(text) : ''));
     if (s.closed) return;
     var clean = String(text || '').trim().replace(/[.?!,]+$/, '');
     if (err || !clean) {
@@ -525,7 +537,7 @@ function watchField() {
       log(field ? 'text box selected' : 'text box left');
     }
   });
-  c.on('error', function (e) { log('text box watch: ' + e); });
+  c.on('error', function (e) { warn('text box watch: ' + e); });
   c.on('close', function () {
     field = false;
     setTimeout(watchField, FIELD_RETRY);
@@ -586,7 +598,7 @@ function take() {
     log('name taken after ' + tries + ' retries');
     watchField();
   } catch (e) {
-    if (++tries > 40) { log('gave up on the name: ' + e); process.exit(1); }
+    if (++tries > 40) { warn('gave up on the name: ' + e); process.exit(1); }
     setTimeout(take, 1000);
   }
 }

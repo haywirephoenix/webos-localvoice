@@ -13,6 +13,8 @@
 #   ctl.sh speech N  set the speech level by hand
 #   ctl.sh button M  how the remote's button works: none, hold or click
 #   ctl.sh models C  speech models: see service/models.js
+#   ctl.sh debug on  log each phrase, words included, to $RUN/log.txt
+#   ctl.sh debug off stop, and delete the log
 #
 # The swap survives only until a reboot: a bind mount hides LG's program and the running service
 # takes its name. Nothing in the system's folders is changed.
@@ -23,6 +25,7 @@ CONF=/var/lib/webosbrew/localvoice.conf
 SPEECH=/var/lib/webosbrew/localvoice.speech
 BUTTON=/var/lib/webosbrew/localvoice.button
 MODEL=/var/lib/webosbrew/localvoice.model
+DEBUG=/var/lib/webosbrew/localvoice.debug
 EXE=/usr/sbin/voiceconductor
 INPUT=/usr/sbin/voiceinput
 UNIT=voiceconductor.service
@@ -35,7 +38,8 @@ CLAIM=/tmp/lifesgoodwithoutspying.claim.$NAME
 STANDIN=/tmp/lifesgoodwithoutspying.answer.$NAME.pid
 export NODE_PATH=/usr/lib/nodejs
 
-json() { printf '{"ok":%s,"enabled":%s,"running":%s,"blocked":%s,"speech":%s,"button":"%s","model":"%s","error":"%s"}\n' "$1" "$(enabled_json)" "$(running_json)" "$(blocked_json)" "$(speech_json)" "$(button_json)" "$(model_json)" "$2"; }
+json() { printf '{"ok":%s,"enabled":%s,"running":%s,"blocked":%s,"speech":%s,"button":"%s","model":"%s","debug":%s,"error":"%s"}\n' "$1" "$(enabled_json)" "$(running_json)" "$(blocked_json)" "$(speech_json)" "$(button_json)" "$(model_json)" "$(debug_json)" "$2"; }
+debug_json() { [ -f "$DEBUG" ] && echo true || echo false; }
 model_json() { cat "$RUN/engine-model" 2>/dev/null; }
 button_json() { [ -s "$BUTTON" ] && cat "$BUTTON" || echo hold; }
 speech_json() { [ -s "$SPEECH" ] && cat "$SPEECH" || echo 150; }
@@ -116,7 +120,10 @@ install_card() {
 remove_card() { card_call remove "{\"id\":\"$CARD\",\"subscribe\":true}"; }
 
 start() {
+    # The log and what the service keeps are for root alone.
+    umask 077
     mkdir -p "$RUN"
+    chmod 700 "$RUN"
     node "$APP/service/models.js" migrate >/dev/null 2>&1
     ( trap '' HUP; install_card ) </dev/null >/dev/null 2>&1 &
     pid_running && { json true ""; return; }
@@ -206,6 +213,13 @@ case "$1" in
         esac
         ;;
     # Node takes over 2 s to start on the TV, too long to poll, so progress is read from here.
+    debug)
+        case "$2" in
+            on) touch "$DEBUG"; json true "" ;;
+            off) rm -f "$DEBUG" "$RUN/log.txt" "$RUN/log.txt.old"; json true "" ;;
+            *) json false "on or off" ;;
+        esac
+        ;;
     modelstate)
         printf '{"free":%s,"chosen":"%s","running":"%s","job":%s}
 '             "$(df -m /media/developer | awk 'END { print $(NF - 2) }')" "$(cat "$MODEL" 2>/dev/null)"             "$(cat "$RUN/engine-model" 2>/dev/null)" "$(cat "$RUN/model-job" 2>/dev/null || echo null)"
@@ -234,7 +248,7 @@ case "$1" in
         json true ""
         ;;
     *)
-        echo "usage: $0 status | enable | disable | start | stop | heard | typed | tune | tuned | speech N | button M | models C | modelstate" >&2
+        echo "usage: $0 status | enable | disable | start | stop | heard | typed | tune | tuned | speech N | button M | models C | modelstate | debug on|off" >&2
         exit 2
         ;;
 esac
