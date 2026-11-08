@@ -187,7 +187,7 @@ def app_files(folder="app"):
         if p.is_file():
             rel = p.relative_to(base).as_posix()
             data = p.read_bytes()
-            if p.suffix != ".png":
+            if p.suffix not in (".png", ".woff2"):
                 data = data.replace(b"\r\n", b"\n")
             files.append((rel, data, 0o755 if rel in EXECUTABLE else 0o644))
     return files
@@ -227,9 +227,14 @@ def main():
     version = info["version"]
     card_files = app_files("card") + [("icon.png", (ROOT / "app/icon.png").read_bytes(), 0o644),
                                       ("level.js", (ROOT / "app/level.js").read_bytes(), 0o644)]
+    # The orb, built in the AI-Orb project and copied into orb/ (see orb/README.md), and its look.
+    card_files += [("orb/" + n, (ROOT / "orb" / n).read_bytes(), 0o644) for n in ("ai-orb.js", "orb.config.json")]
     card, _ = package(CARD, version, card_files, "The status card of Local Voice")
     files = app_files() + [("runtime/" + n, d, m) for n, d, m in runtime_files()]
     files += [("card/card.ipk", card, 0o644), ("card/version", ('"version": "%s"' % version).encode(), 0o644)]
+    # The card's page as well, for the app's demo mode, which shows it in a frame.
+    files += [("card/" + n, d, m) for n, d, m in card_files if n.endswith((".html", ".css", ".js", ".json"))
+              and n != "appinfo.json"]
     ipk, size = package(APP, version, files, "Speech recognition that runs on the TV")
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)

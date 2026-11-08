@@ -1,47 +1,154 @@
-html, body { margin: 0; height: 100%; background: #101418; color: #eef1f4; font-family: "LG Smart UI", Arial, sans-serif; }
-main, #panel { box-sizing: border-box; width: 1200px; margin: 0 auto; padding: 64px 0 0; }
+/* Local Voice's page. Laid out at 1200x675 and zoomed to fill the window: 1.6 on the TV's 1920x1080
+   (app.js sets the zoom). Each part is a card; the top line holds the status and the main switch. */
+:root {
+  --bg: #081d27;
+  --panel: rgba(16, 21, 26, 0.1);
+  --panel-2: rgba(7, 12, 18, 0.08);
+  --border: #4d6071;
+  --border-soft: #4d6071;
+  --text: #d7dee3;
+  --text-dim: #8b97a1;
+  --text-faint: #d1d1d1;
+  --green: #3fd47a;
+  --green-dim: #1d5c3a;
+  --amber: #e0a834;
+  --amber-dim: #6b5620;
+  --red: #f0555a;
+  --red-dim: #6b2528;
+  --blue: #5aa9e6;
+  --font: "Noto Sans", "LG Smart UI", Arial, sans-serif;
+}
+
+/* Noto Sans, Latin only, carried in the app so nothing is fetched (SIL OFL 1.1, fonts/OFL.txt).
+   Other characters fall back to the TV's own fonts. */
+@font-face {
+  font-family: "Noto Sans"; font-style: normal; font-display: swap; font-weight: 100 900;
+  src: url(fonts/NotoSans-latin-wght.woff2) format("woff2");
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { zoom: 1.6; height: 100%; background: var(--bg); }
+body {
+  height: 100%;
+  overflow: hidden;
+  color: var(--text);
+  font-family: var(--font);
+  background: var(--bg_gradient);
+}
+.wrap { width: 1200px; height: 675px; margin: 0 auto; padding: 22px 28px 12px; display: flex; flex-direction: column; }
 #panel { display: none; }
-h1 { margin: 0 0 8px; font-size: 48px; font-weight: 600; }
-h2 { margin: 30px 0 8px; font-size: 28px; font-weight: 600; }
-p { margin: 0; font-size: 26px; line-height: 1.35; }
-.lead { color: #c4ccd4; margin-bottom: 28px; }
-.note { margin-top: 14px; color: #8f9aa5; font-size: 22px; }
+
+/* ---------- Top line: name and status, the switch, and a pill ---------- */
+.topline {
+  flex: none; display: flex; align-items: center;
+  border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 18px;
+}
+.brand { flex: 1 1 0; min-width: 0; }
+.brand h1 { font-size: 18px; font-weight: 600; letter-spacing: 0.2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.brand h1 span { color: var(--text-faint); font-weight: 400; }
+.meta-line { margin-top: 4px; font-size: 12px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.meta-line.error { color: var(--red); }
+
+.state-pill {
+  flex: none; display: inline-flex; align-items: center;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase;
+  padding: 5px 11px; border-radius: 20px;
+  border: 1px solid var(--green-dim); color: var(--green); background: rgba(63,212,122,0.07);
+}
+.state-pill .dot { width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); }
+.state-pill.off { border-color: var(--border); color: var(--text-dim); background: transparent; }
+.state-pill.off .dot { background: var(--text-faint); box-shadow: none; }
+.state-pill.bad { border-color: var(--red-dim); color: var(--red); background: rgba(240,85,90,0.08); }
+.state-pill.bad .dot { background: var(--red); box-shadow: 0 0 8px var(--red); }
+.state-pill.unknown { border-color: var(--amber-dim); color: var(--amber); background: rgba(224,168,52,0.07); }
+.state-pill.unknown .dot { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
+
+/* ---------- Buttons ---------- */
+.ctl {
+  font-family: var(--font); font-size: 12.5px; font-weight: 600;
+  color: var(--text); background: var(--panel-2);
+  border: 1px solid var(--border); border-radius: 6px; padding: 9px 13px;
+}
+.ctl.primary { min-width: 120px; border-color: var(--green-dim); color: var(--green); background: rgba(63,212,122,0.07); }
+.ctl.primary.is-on { border-color: var(--red-dim); color: var(--red); background: rgba(240,85,90,0.08); }
+.ctl.on { border-color: var(--green-dim); color: var(--green); }
+.ctl.wide { width: 100%; text-align: left; }
+.ctl.step { width: 36px; padding: 9px 0; font-size: 15px; line-height: 1; }
+.ctl:disabled { opacity: 0.4; }
+.ctl:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 2px rgba(90,169,230,0.45); background: rgba(90,169,230,0.12); }
+.ctl.busy { color: var(--text-dim); }
+
+/* ---------- Banner, for a problem ---------- */
+.banner {
+  flex: none; margin-bottom: 14px; padding: 12px 16px;
+  background: rgba(224,168,52,0.06); border: 1px solid var(--amber-dim); border-left: 3px solid var(--amber);
+  border-radius: 6px; font-size: 12.5px; line-height: 1.6; color: #d9c48a;
+}
+.banner.bad { background: rgba(240,85,90,0.06); border-color: var(--red-dim); border-left-color: var(--red); color: #f0b4b6; }
+
+/* ---------- Cards ---------- */
+.main { flex: 1; min-height: 0; display: flex; }
+.pane-left { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; }
+.pane-right { width: 360px; flex: none; display: flex; flex-direction: column; margin-left: 16px; }
+.card { flex: none; background: var(--panel); border-radius: 9px; padding: 14px 16px; margin-bottom: 12px; }
+.card.grow { flex: 1 1 auto; display: flex; flex-direction: column; }
+.section-label {
+  display: flex; align-items: center; margin-bottom: 12px;
+  font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--text);
+}
+.section-label::after { content: ""; flex: 1; height: 1px; margin-left: 10px; background: var(--border); }
+p { font-size: 13px; line-height: 1.5; }
+.note { margin-top: 10px; font-size: 11.5px; line-height: 1.55; color: var(--text-faint); }
+.error, .note.error { color: var(--red); }
 .row { display: flex; align-items: center; }
-.row > * { margin-right: 20px; }
-button { box-sizing: border-box; height: 68px; padding: 0 32px; border: 3px solid #5b6672; border-radius: 12px; background: #1d242b; color: #eef1f4; font: inherit; font-size: 26px; }
-button:focus { outline: none; border-color: #fff; background: #2f6fed; }
-button:disabled { color: #8f9aa5; }
-#toggle { width: 220px; padding: 0; }
-#mode { width: 470px; padding: 0; }
-#model { width: 400px; padding: 0; margin-right: 0; }
-#tune { width: 300px; padding: 0; }
-#debug { width: 300px; padding: 0; }
-.step { width: 68px; padding: 0; font-size: 34px; }
-#speech { width: 220px; text-align: center; font-size: 26px; }
-#status { min-height: 34px; margin-top: 16px; font-size: 24px; }
-#meter { position: relative; height: 16px; margin: 14px 0 12px; overflow: hidden; border-radius: 8px; background: #1d242b; }
-#fill { position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: #eef1f4; -webkit-transform: scaleX(0); transform: scaleX(0); -webkit-transform-origin: left; transform-origin: left; transition: -webkit-transform .1s linear, transform .1s linear; }
-#meter.soft #fill { background: #eef1f4; }
-#meter.clear #fill { background: #4cc38a; }
-#meter.loud #fill { background: #ff5a4f; }
-#mark { position: absolute; left: 66%; top: 0; width: 4px; height: 100%; background: #2f6fed; }
-#test { box-sizing: border-box; min-height: 70px; padding: 16px 24px; border: 3px solid #5b6672; border-radius: 12px; background: #1d242b; font-size: 28px; }
-#test.empty { color: #8f9aa5; }
-.error { color: #ffb4a8; }
-.model { margin-bottom: 28px; padding: 20px 24px; border: 3px solid #5b6672; border-radius: 12px; background: #1d242b; }
-.model h2 { margin: 0 0 6px; }
-.model button { height: 56px; min-width: 180px; margin-top: 12px; padding: 0 24px; background: #101418; }
-.model button:focus { background: #2f6fed; }
-.facts { font-size: 22px; color: #c4ccd4; }
-.url { font-size: 18px; color: #8f9aa5; word-break: break-all; }
-.bar { height: 14px; margin-top: 12px; overflow: hidden; border-radius: 7px; background: #101418; }
-.bar i { display: block; height: 100%; background: #2f6fed; -webkit-transform: scaleX(0); transform: scaleX(0); -webkit-transform-origin: left; transform-origin: left; transition: -webkit-transform .4s linear, transform .4s linear; }
-.progress { margin-top: 8px; font-size: 22px; }
-#loading { display: none; align-items: center; padding: 40px 0; font-size: 26px; color: #c4ccd4; }
-.spinner { display: block; width: 44px; height: 44px; margin-right: 20px; box-sizing: border-box; border: 5px solid #5b6672; border-top-color: #eef1f4; border-radius: 50%; animation: spin 1s linear infinite; }
+.row > * + * { margin-left: 8px; }
+#speech { width: 150px; text-align: center; font-size: 12.5px; color: var(--text); }
+
+/* ---------- Try it: the level meter and what was heard ---------- */
+#meter { position: relative; height: 10px; margin: 14px 0 12px; overflow: hidden; border-radius: 5px; background: var(--panel-2); }
+#fill { position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: var(--text); -webkit-transform: scaleX(0); transform: scaleX(0); -webkit-transform-origin: left; transform-origin: left; transition: -webkit-transform .1s linear, transform .1s linear; }
+#meter.soft #fill { background: var(--text); }
+#meter.clear #fill { background: var(--green); }
+#meter.loud #fill { background: var(--red); }
+#mark { position: absolute; left: 66%; top: 0; width: 3px; height: 100%; background: var(--blue); }
+#test {
+  flex: 1 1 auto; min-height: 60px; padding: 12px 14px;
+  background: var(--panel-2); border-radius: 8px;
+  font-size: 17px; line-height: 1.45; color: var(--text);
+}
+#test.empty { color: var(--text-faint); }
+
+footer { flex: none; margin-top: 2px; text-align: center; font-size: 10.5px; color: var(--text-faint); }
+
+/* ---------- Speech models ---------- */
+.scroll { flex: 1; min-height: 0; overflow-y: auto; }
+#list { display: flex; flex-wrap: wrap; justify-content: space-between; }
+.model { width: calc((100% - 14px) / 2); background: var(--panel); border: 1px solid var(--border); border-radius: 9px; padding: 14px 16px; margin-bottom: 14px; }
+.model h2 { margin-bottom: 8px; font-size: 15px; font-weight: 700; }
+.facts { font-size: 12px; color: var(--text-dim); }
+.url { margin-top: 6px; font-size: 10.5px; color: var(--text-faint); word-break: break-all; }
+.bar { height: 8px; margin-top: 12px; overflow: hidden; border-radius: 4px; background: var(--panel-2); border: 1px solid var(--border-soft); }
+.bar i { display: block; height: 100%; background: var(--blue); -webkit-transform: scaleX(0); transform: scaleX(0); -webkit-transform-origin: left; transform-origin: left; transition: -webkit-transform .4s linear, transform .4s linear; }
+.progress { margin-top: 8px; font-size: 12px; color: var(--text-dim); }
+.progress:empty { display: none; }
+.model .row { margin-top: 12px; }
+.model .ctl { min-width: 110px; }
+#loading { display: none; align-items: center; padding: 30px 0; font-size: 13px; color: var(--text-dim); }
+.spinner { display: block; width: 26px; height: 26px; margin-right: 14px; border: 3px solid var(--border); border-top-color: var(--text); border-radius: 50%; animation: spin 1s linear infinite; }
 @keyframes spin { to { -webkit-transform: rotate(360deg); transform: rotate(360deg); } }
-.model button.busy { color: #c4ccd4; }
 .dots i { font-style: normal; animation: blink 1.2s infinite; }
 .dots i:nth-child(2) { animation-delay: .2s; }
 .dots i:nth-child(3) { animation-delay: .4s; }
 @keyframes blink { 0%, 60%, 100% { opacity: .15; } 30% { opacity: 1; } }
+
+/* webOS 5 runs Chrome 68, which has no gap for flex layouts, so spaces between items are margins. */
+.topline > * + * { margin-left: 14px; }
+
+/* ---------- Demo mode (demo.js) ---------- */
+.demo-tag {
+  flex: none; padding: 3px 8px; border: 1px solid var(--amber-dim); border-radius: 4px;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--amber);
+}
+.demo-tag[hidden] { display: none; }
+/* The card, as it shows over other apps on the TV: a frame the size of the page, letting the pointer through. */
+.demo-card { position: fixed; left: 0; top: 0; width: 100%; height: 100%; border: 0; background: transparent; pointer-events: none; z-index: 10; }

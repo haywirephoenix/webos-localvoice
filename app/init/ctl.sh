@@ -12,6 +12,8 @@
 #   ctl.sh tuned     how that went, once
 #   ctl.sh speech N  set the speech level by hand
 #   ctl.sh button M  how the remote's button works: none, hold or click
+#   ctl.sh words W   whether the card shows the words heard: on or off
+#   ctl.sh toasts T  whether messages may show as toasts: on or off (the default)
 #   ctl.sh models C  speech models: see service/models.js
 #   ctl.sh debug on  log each phrase, words included, to $RUN/log.txt
 #   ctl.sh debug off stop, and delete the log
@@ -26,6 +28,8 @@ SPEECH=/var/lib/webosbrew/localvoice.speech
 BUTTON=/var/lib/webosbrew/localvoice.button
 MODEL=/var/lib/webosbrew/localvoice.model
 DEBUG=/var/lib/webosbrew/localvoice.debug
+WORDS=/var/lib/webosbrew/localvoice.nowords
+TOASTS=/var/lib/webosbrew/localvoice.toasts
 EXE=/usr/sbin/voiceconductor
 INPUT=/usr/sbin/voiceinput
 UNIT=voiceconductor.service
@@ -38,7 +42,9 @@ CLAIM=/tmp/lifesgoodwithoutspying.claim.$NAME
 STANDIN=/tmp/lifesgoodwithoutspying.answer.$NAME.pid
 export NODE_PATH=/usr/lib/nodejs
 
-json() { printf '{"ok":%s,"enabled":%s,"running":%s,"blocked":%s,"speech":%s,"button":"%s","model":"%s","debug":%s,"error":"%s"}\n' "$1" "$(enabled_json)" "$(running_json)" "$(blocked_json)" "$(speech_json)" "$(button_json)" "$(model_json)" "$(debug_json)" "$2"; }
+json() { printf '{"ok":%s,"enabled":%s,"running":%s,"blocked":%s,"speech":%s,"button":"%s","model":"%s","debug":%s,"words":%s,"toasts":%s,"error":"%s"}\n' "$1" "$(enabled_json)" "$(running_json)" "$(blocked_json)" "$(speech_json)" "$(button_json)" "$(model_json)" "$(debug_json)" "$(words_json)" "$(toasts_json)" "$2"; }
+toasts_json() { [ -f "$TOASTS" ] && echo true || echo false; }
+words_json() { [ -f "$WORDS" ] && echo false || echo true; }
 debug_json() { [ -f "$DEBUG" ] && echo true || echo false; }
 model_json() { cat "$RUN/engine-model" 2>/dev/null; }
 button_json() { [ -s "$BUTTON" ] && cat "$BUTTON" || echo hold; }
@@ -212,6 +218,20 @@ case "$1" in
             *) json false "not a button mode" ;;
         esac
         ;;
+    toasts)
+        case "$2" in
+            on) touch "$TOASTS"; json true "" ;;
+            off) rm -f "$TOASTS"; json true "" ;;
+            *) json false "on or off" ;;
+        esac
+        ;;
+    words)
+        case "$2" in
+            on) rm -f "$WORDS"; json true "" ;;
+            off) touch "$WORDS"; json true "" ;;
+            *) json false "on or off" ;;
+        esac
+        ;;
     # Node takes over 2 s to start on the TV, too long to poll, so progress is read from here.
     debug)
         case "$2" in
@@ -248,7 +268,7 @@ case "$1" in
         json true ""
         ;;
     *)
-        echo "usage: $0 status | enable | disable | start | stop | heard | typed | tune | tuned | speech N | button M | models C | modelstate | debug on|off" >&2
+        echo "usage: $0 status | enable | disable | start | stop | heard | typed | tune | tuned | speech N | button M | words W | toasts T | models C | modelstate | debug on|off" >&2
         exit 2
         ;;
 esac

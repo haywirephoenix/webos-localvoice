@@ -1,22 +1,30 @@
 html, body { margin: 0; height: 100%; background: transparent; color: #eef1f4; font-family: "LG Smart UI", Arial, sans-serif; }
+/* The orb, centred above the bottom edge, where the pill sits. */
+#orb { position: fixed; left: 0; right: 0; bottom: 56px; display: flex; justify-content: center; pointer-events: none; }
 #shell { position: fixed; left: 0; right: 0; bottom: 72px; text-align: center; }
-#card { display: none; box-sizing: border-box; max-width: 1000px; padding: 24px 36px; border-radius: 28px; background: rgba(16, 20, 24, .94); font-size: 36px; line-height: 1.3; text-align: left; }
+/* One layout for every stage, so that the card keeps its size from listening to the words heard.
+   Without the words line (the app's Words on the card setting) it is a narrower pill. */
+#card { display: none; box-sizing: border-box; width: 760px; padding: 22px 36px; border-radius: 28px; background: rgba(16, 20, 24, .84); text-align: left; }
 #card.on { display: inline-flex; align-items: center; }
+#card.plain { width: 440px; padding: 18px 34px; }
+/* A problem can take a long sentence, and nothing follows it, so that card fits its message. */
+#card.error { width: auto; min-width: 760px; max-width: 1200px; }
+#card.plain.error { min-width: 440px; }
+#card.error #message { white-space: normal; }
 #bars { display: flex; flex: none; align-items: center; height: 64px; margin-right: 28px; }
-#bars i { display: block; width: 10px; height: 64px; margin-right: 6px; border-radius: 5px; background: #eef1f4; -webkit-transform: scaleY(.1); transform: scaleY(.1); transition: -webkit-transform .1s linear, transform .1s linear, background-color .1s linear; }
+#bars i { display: block; width: 10px; height: 64px; margin-right: 6px; border-radius: 5px; background: #eef1f4; -webkit-transform: scaleY(.1); transform: scaleY(.1); transition: -webkit-transform .12s linear, transform .12s linear, background-color .3s linear; }
 #bars i:last-child { margin-right: 0; }
+/* Between stages the bars glide to their new shape. */
+#card.morph #bars i { transition: -webkit-transform .45s ease-out, transform .45s ease-out, background-color .3s linear; }
 #card.soft #bars i { background: #eef1f4; }
 #card.clear #bars i { background: #4cc38a; }
 #card.loud #bars i { background: #ff5a4f; }
-#card.recognising #bars i { background: #2f6fed; animation: pulse 1s infinite; }
+#card.recognising #bars i { background: #2f6fed; }
 #card.heard #bars i { background: #4cc38a; }
 #card.error #bars i { background: #ffb4a8; }
-#card.recognising #bars i:nth-child(2) { animation-delay: .1s; }
-#card.recognising #bars i:nth-child(3) { animation-delay: .2s; }
-#card.recognising #bars i:nth-child(4) { animation-delay: .3s; }
-#card.recognising #bars i:nth-child(5) { animation-delay: .4s; }
-#card.recognising #bars i:nth-child(6) { animation-delay: .5s; }
-#card.recognising #bars i:nth-child(7) { animation-delay: .6s; }
-#hint { display: block; color: #8f9aa5; font-size: 26px; }
-#hint:empty { display: none; }
-@keyframes pulse { 50% { -webkit-transform: scaleY(.6); transform: scaleY(.6); } }
+#words { display: block; flex: 1 1 auto; min-width: 0; }
+#message { display: block; font-size: 36px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The words heard: one line, which scrolls when they are longer than the card. */
+#line { display: block; height: 34px; overflow: hidden; white-space: nowrap; color: #b9c3cc; font-size: 26px; line-height: 34px; }
+#text { display: inline-block; -webkit-transform: translateX(0); transform: translateX(0); }
+#card.plain #line { display: none; }

@@ -3,47 +3,85 @@
 <head>
   <meta charset="utf-8">
   <title>Local Voice</title>
+  <link rel="stylesheet" href="gradient.css">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main id="main">
-    <h1>Local Voice</h1>
-    <p class="lead">Speech recognition that runs on this TV. Nothing you say leaves the TV.</p>
-    <div class="row">
-      <button id="toggle" disabled>Checking…</button>
-      <button id="mode">Microphone button</button>
-      <button id="model">Speech models</button>
+  <div class="wrap" id="main">
+    <header class="topline">
+      <div class="brand">
+        <h1>Local Voice <span>/ speech recognition on this TV</span></h1>
+        <div class="meta-line" id="status" role="status">checking</div>
+      </div>
+      <button class="ctl primary" id="toggle" disabled>Checking…</button>
+      <span class="demo-tag" id="demoTag" hidden>demo</span>
+      <div class="state-pill unknown" id="pill"><span class="dot"></span><span id="pillText">checking</span></div>
+    </header>
+    <div class="banner" id="banner" hidden></div>
+
+    <div class="main">
+      <div class="pane-left">
+        <section class="card">
+          <div class="section-label">Microphone level</div>
+          <div class="row">
+            <button class="ctl" id="tune">Set up microphone</button>
+            <button class="ctl step" id="less" aria-label="Lower the speech level">&minus;</button>
+            <span id="speech">Speech level</span>
+            <button class="ctl step" id="more" aria-label="Raise the speech level">+</button>
+          </div>
+          <p id="tuneNote" class="note">Set up listens to a test phrase and picks a speech level. A lower level picks up a quieter voice.</p>
+        </section>
+
+        <section class="card">
+          <div class="section-label">On screen</div>
+          <button class="ctl" id="toasts">Toasts: off</button>
+          <p class="note">The orb over other apps shows what voice is doing. With toasts on, a phrase typed into a text box (which shows no orb, as it would close the keyboard) shows its messages as toasts too.</p>
+        </section>
+
+        <section class="card grow">
+          <div class="section-label">Try it</div>
+          <p>Hold the remote's microphone button, speak and let go.</p>
+          <div id="meter"><i id="fill"></i><b id="mark"></b></div>
+          <div id="test" class="empty">Your words appear here</div>
+          <p class="note">Voice also works in other text boxes, in YouTube, and with an app's own microphone button.</p>
+        </section>
+      </div>
+      <div class="pane-right">
+        <section class="card">
+          <div class="section-label">Microphone button</div>
+          <button class="ctl wide" id="mode">Hold</button>
+          <p id="modeNote" class="note"></p>
+        </section>
+        <section class="card">
+          <div class="section-label">Speech model</div>
+          <button class="ctl wide" id="model">Speech models</button>
+          <p id="modelNote" class="note"></p>
+        </section>
+        <section class="card">
+          <div class="section-label">Troubleshooting</div>
+          <button class="ctl wide" id="debug">Debug log: off</button>
+          <p class="note">Records each phrase, including what you said and which app it went to, until the TV restarts. Turning it off deletes it.</p>
+        </section>
+      </div>
     </div>
-    <p id="status" role="status"></p>
-    <p id="modelNote" class="note"></p>
 
-    <h2>Try it</h2>
-    <p>Hold the remote's microphone button, speak and let go.</p>
-    <div id="meter"><i id="fill"></i><b id="mark"></b></div>
-    <div id="test" class="empty">Your words appear here</div>
+    <footer>Nothing you say leaves the TV &middot; audio is never saved</footer>
+  </div>
 
-    <h2>Microphone level</h2>
-    <div class="row">
-      <button id="tune">Set up microphone</button>
-      <button id="less" class="step" aria-label="Lower the speech level">&minus;</button>
-      <span id="speech">Speech level</span>
-      <button id="more" class="step" aria-label="Raise the speech level">+</button>
+  <div class="wrap" id="panel">
+    <header class="topline">
+      <div class="brand">
+        <h1>Speech models <span>/ downloaded to this TV</span></h1>
+        <div class="meta-line" id="space"></div>
+      </div>
+      <button class="ctl" id="closePanel">Close</button>
+    </header>
+    <div class="scroll" id="scroller">
+      <div id="loading"><i class="spinner"></i>Loading models</div>
+      <div id="list"></div>
     </div>
-    <p id="tuneNote" class="note">Set up listens to a test phrase and picks a speech level. A lower level picks up a quieter voice.</p>
-
-    <p class="note">Voice also works in other text boxes, in YouTube, and with an app's own microphone button.</p>
-
-    <h2>Troubleshooting</h2>
-    <div class="row"><button id="debug">Debug log: Off</button></div>
-    <p class="note">The debug log records each phrase, including what you said and which app it went to, until the TV restarts. Turning it off deletes it. Leave it off unless you are tracking down a problem.</p>
-  </main>
-  <section id="panel">
-    <h1>Speech models</h1>
-    <p id="space" class="lead"></p>
-    <div id="loading"><i class="spinner"></i>Loading models</div>
-    <div id="list"></div>
-    <button id="closePanel">Close</button>
-  </section>
+  </div>
+  <script src="demo.js"></script>
   <script src="level.js"></script>
   <script src="modelview.js"></script>
   <script src="app.js"></script>

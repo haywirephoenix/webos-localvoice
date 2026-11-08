@@ -23,6 +23,8 @@ var MODEL = '/var/lib/webosbrew/localvoice.model';    // the chosen model's id
 var MODELS = '/media/developer/localvoice/models';    // models.js downloads them here
 var ENGINE_MODEL = RUN + '/engine-model';             // which model has loaded
 var BUTTON = '/var/lib/webosbrew/localvoice.button';  // none or click, if not the default of hold
+var NO_WORDS = '/var/lib/webosbrew/localvoice.nowords';  // there when the card leaves out the words heard
+var TOASTS = '/var/lib/webosbrew/localvoice.toasts';  // there when messages may also show as toasts
 var TUNE = RUN + '/tune', TUNED = RUN + '/tuned';    // asks for the next phrase to set it, and the outcome
 var TUNE_WAIT = 60000;
 var APP_ID = 'com.haywire.localvoice';
@@ -78,7 +80,10 @@ function warn(s) { write(s); }
 process.on('uncaughtException', function (e) { warn('uncaught: ' + (e && e.stack || e)); process.exit(1); });
 var palmbus = require('palmbus');
 
+// Toasts are off unless turned on in the app: then a phrase for a text box, which shows no card,
+// shows its stages as toasts, and so does a message whose card failed to open.
 function toast(message) {
+  if (!fs.existsSync(TOASTS)) return;
   cp.execFile('luna-send', ['-n', '1', 'luna://com.webos.notification/createToast',
     JSON.stringify({sourceId: APP_ID, message: message, noaction: true})],
     {timeout: 8000}, function (err) {
@@ -100,21 +105,29 @@ function bus(uri, body, done) {
 
 // The card is a small app of its own, which never takes focus from the app beneath it. A failed
 // launch falls back to a toast, so that a message is never lost.
-function card(state, message, hint) {
-  bus(MANAGER + 'launch', {id: CARD_APP, params: {card: {state: state, message: message || '', hint: hint || ''}}}, function (o) {
+// nothing marks an error that is only silence (nothing heard or recognised), which the card shows
+// more gently than a fault.
+function card(state, message, hint, nothing) {
+  var c = {state: state, message: message || '', hint: hint || '', words: !fs.existsSync(NO_WORDS)};
+  if (nothing) c.nothing = true;
+  bus(MANAGER + 'launch', {id: CARD_APP, params: {card: c}}, function (o) {
     if (o.returnValue === false && message) toast(message);
   });
 }
 // Any new window closes the on-screen keyboard and leaves the selected text box unable to take
 // text, even after that window has gone. A toast does neither, so a phrase meant for a text box
 // shows a toast and no card. The words appearing in the box say the rest.
-function status(s, state, message) {
-  if (!s.plain) card(state, message);
+function status(s, state, message, nothing) {
+  if (!s.plain) card(state, message, '', nothing);
   else if (state !== 'recognising') toast(message);
 }
+// Each file is removed HEARD_KEEP after its latest phrase. An earlier phrase's timer is cancelled,
+// as it would otherwise remove a newer phrase before it was read.
+var forget = {};
 function keep(file, text) {
   try { fs.writeFileSync(file, JSON.stringify({text: text}), {mode: 384}); } catch (e) { warn('heard: ' + e); }
-  setTimeout(function () { try { fs.unlinkSync(file); } catch (e) {} }, HEARD_KEEP);
+  clearTimeout(forget[file]);
+  forget[file] = setTimeout(function () { try { fs.unlinkSync(file); } catch (e) {} }, HEARD_KEEP);
 }
 function showHeard(text, hint) {
   keep(HEARD, text);
@@ -301,7 +314,7 @@ function close(s, note) {
 
 function fail(s, message, note) {
   s.keepCard = true;
-  status(s, 'error', message);
+  status(s, 'error', message, /^nothing/.test(note));
   close(s, note);
 }
 function openMic(s) {

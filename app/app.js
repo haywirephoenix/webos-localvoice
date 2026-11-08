@@ -1,4 +1,4 @@
-// The settings screen: one switch and a text box to try voice in. Root work goes through the Homebrew Channel's exec to ctl.sh.
+// The settings screen: a top line with the status and the switch, and a card for each part. Root work goes through the Homebrew Channel's exec to ctl.sh.
 // Plain ES5, for the older web engines of webOS 5 and 6.
 (function () {
   'use strict';
@@ -22,9 +22,18 @@
   var model = document.getElementById('model');
   var modelNote = document.getElementById('modelNote');
   var debugButton = document.getElementById('debug');
-  var rows = [[button, mode, model], [tune, less, more], [debugButton]];   // as they are laid out, for the arrow keys
+  var toastsButton = document.getElementById('toasts');
+  var modeNote = document.getElementById('modeNote');
+  var pill = document.getElementById('pill');
+  var pillText = document.getElementById('pillText');
+  var banner = document.getElementById('banner');
   var MODES = ['hold', 'click', 'none'];
   var MODE_NAMES = {none: 'None', hold: 'Hold', click: 'Click or Hold'};
+  var MODE_NOTES = {
+    hold: 'Hold the button and speak; letting go ends the phrase.',
+    click: 'Hold as above, or press once: it listens until you pause.',
+    none: 'The button does nothing here. Apps\' own microphone buttons still work.'
+  };
   var TUNE_WAIT = 60000;   // as the service: an unused request to tune lapses
   var state = null, busy = false, feed = null, speechLevel = 150, tuneEnds = 0, modeNow = 'hold';
   // Older engines can collect a bridge while its call is in flight, so hold each until it answers.
@@ -47,7 +56,8 @@
   }
   function showMode(value) {
     modeNow = value;
-    mode.textContent = 'Microphone button: ' + MODE_NAMES[value];
+    mode.textContent = MODE_NAMES[value];
+    modeNote.textContent = MODE_NOTES[value] + ' Press to change.';
   }
   function nextMode() {
     var next = MODES[(MODES.indexOf(modeNow) + 1) % MODES.length];
@@ -55,7 +65,7 @@
     ctl('button ' + next, function () {});
   }
   function showModel(a) {
-    modelNote.textContent = a.model ? 'Using ' + a.model + '.' : 'No speech model is loaded. Open Speech models to download one.';
+    modelNote.textContent = a.model ? 'Using ' + a.model + '. Download, switch or delete models here.' : 'No speech model is loaded. Open Speech models to download one.';
     modelNote.className = a.model ? 'note' : 'note error';
   }
   function showSpeech(value) {
@@ -85,41 +95,61 @@
     };
     feed.call(METER, '{"subscribe":true}');
   }
+  // The pill and the line under the name say how things are; a problem gets a banner.
+  function state3(text, pillClass, line, problem) {
+    pillText.textContent = text;
+    pill.className = 'state-pill ' + pillClass;
+    status.textContent = line;
+    status.className = 'meta-line';
+    banner.hidden = !problem;
+    banner.className = 'banner bad';
+    banner.textContent = problem || '';
+  }
+  // Toasts: for a phrase typed into a text box, where a card would close the keyboard, and for a
+  // message whose card failed to open. Off by default.
+  function showToasts(on) {
+    toastsButton.textContent = 'Toasts: ' + (on ? 'on' : 'off');
+    toastsButton.className = 'ctl' + (on ? ' on' : '');
+  }
   function show(a) {
     state = a;
     watchLevel(a && a.running);
     if (a && a.speech) showSpeech(a.speech);
     if (a && MODES.indexOf(a.button) >= 0) showMode(a.button);
     if (a) showModel(a);
-    if (a) debugButton.textContent = 'Debug log: ' + (a.debug ? 'On' : 'Off');
+    if (a) {
+      debugButton.textContent = 'Debug log: ' + (a.debug ? 'on' : 'off');
+      debugButton.className = 'ctl wide' + (a.debug ? ' on' : '');
+      showToasts(!!a.toasts);
+    }
     busy = false;
     button.disabled = false;
-    status.className = '';
+    button.textContent = !a ? 'Try again' : a.enabled ? 'Turn off' : 'Turn on';
+    button.className = 'ctl primary' + (a && a.enabled ? ' is-on' : '');
     if (!a) {
-      button.textContent = 'Try again';
-      status.className = 'error';
-      status.textContent = 'No answer from the Homebrew Channel. Root is needed.';
+      state3('no answer', 'bad', 'No answer from the Homebrew Channel.', 'No answer from the Homebrew Channel. Local Voice needs root and the Homebrew Channel.');
     } else if (a.blocked) {
-      button.textContent = a.enabled ? 'Turn off' : 'Turn on';
-      status.className = 'error';
-      status.textContent = a.enabled ?
+      state3('blocked', 'bad', a.enabled ? 'On, waiting for the microphone service' : 'Off, and the microphone service is off',
+        a.enabled ?
         'Blocked: this TV\'s microphone service is turned off, so apps get no microphone. A privacy tool may have done this, such as the Voice switch in Life\'s Good Without Spying. This resumes by itself once the service is back.' :
-        'Off. This TV\'s microphone service is also turned off, and it has to be back before this can work. A privacy tool may have done this, such as the Voice switch in Life\'s Good Without Spying.';
+        'This TV\'s microphone service is also turned off, and it has to be back before this can work. A privacy tool may have done this, such as the Voice switch in Life\'s Good Without Spying.');
     } else if (a.error) {
-      button.textContent = a.enabled ? 'Turn off' : 'Turn on';
-      status.className = 'error';
-      status.textContent = a.error;
+      state3('problem', 'bad', a.enabled ? 'On, with a problem' : 'Off', a.error);
+    } else if (a.running) {
+      state3('on', '', 'LG\'s voice service is replaced until you turn this off.' + (a.model ? ' Model: ' + a.model + '.' : ''), '');
+    } else if (a.enabled) {
+      state3('starting', 'unknown', 'Starting…', '');
     } else {
-      button.textContent = a.enabled ? 'Turn off' : 'Turn on';
-      status.textContent = a.running ? 'On. LG\'s voice service is replaced until you turn this off.' :
-        a.enabled ? 'Starting…' : 'Off. LG\'s voice service is in place.';
+      state3('off', 'off', 'LG\'s voice service is in place.', '');
     }
-    if (!place()) button.focus();
+    if (!document.activeElement || document.activeElement === document.body) button.focus();
   }
   function run(command) {
     busy = true;
     button.disabled = true;
     status.textContent = 'Working…';
+    pillText.textContent = 'working';
+    pill.className = 'state-pill unknown';
     ctl(command, function (a) { show(a); });
   }
   // Another app can change things while this one is away, so look again whenever it comes back,
@@ -134,23 +164,39 @@
       if (!same) show(a);
     });
   }
-  function navigation() { return window.ModelView.isOpen() ? window.ModelView.rows() : rows; }
-  // Where the focus is, as [row, column], if on a button.
-  function place() {
-    var all = navigation();
-    for (var r = 0; r < all.length; r++) {
-      var c = all[r].indexOf(document.activeElement);
-      if (c >= 0) return [r, c];
-    }
-    return null;
+  // The arrow keys move to the nearest button that way, on the main page or the models panel.
+  function buttons() {
+    var root = document.getElementById(window.ModelView.isOpen() ? 'panel' : 'main');
+    return Array.prototype.filter.call(root.getElementsByTagName('button'), function (b) {
+      return !b.disabled && b.offsetParent !== null;
+    });
   }
-  // Left and right stay in a row and up and down change row, stopping at the edges.
-  function move(rowBy, columnBy) {
-    var at = place(), all = navigation();
-    if (!at) return all[0][0].focus();
-    var row = all[Math.max(0, Math.min(all.length - 1, at[0] + rowBy))];
-    row[Math.max(0, Math.min(row.length - 1, at[1] + columnBy))].focus();
+  function move(dx, dy) {
+    var all = buttons(), at = document.activeElement;
+    if (all.indexOf(at) < 0) return all.length && all[0].focus();
+    var a = at.getBoundingClientRect(), ax = a.left + a.width / 2, ay = a.top + a.height / 2;
+    var inLine = null, lineScore = Infinity, near = null, nearScore = Infinity;
+    all.forEach(function (b) {
+      if (b === at) return;
+      var r = b.getBoundingClientRect();
+      // How far the way the key points, and how far off to the side, between nearest edges.
+      var along = dx ? (dx > 0 ? r.left - a.right : a.left - r.right) : (dy > 0 ? r.top - a.bottom : a.top - r.bottom);
+      if (along < -2) return;
+      var side = dx ? Math.max(0, r.top - a.bottom, a.top - r.bottom) : Math.max(0, r.left - a.right, a.left - r.right);
+      var off = dx ? Math.abs(r.top + r.height / 2 - ay) : Math.abs(r.left + r.width / 2 - ax);
+      var s = along + off * 0.1;
+      if (!side && s < lineScore) { lineScore = s; inLine = b; }
+      if (along + side * 3 < nearScore) { nearScore = along + side * 3; near = b; }
+    });
+    // A button in line wins. Otherwise up goes to the top line, left and right to the nearest that
+    // way below it, and down stops at the bottom.
+    var top = all.filter(function (b) { return b.parentNode.className === 'topline'; });
+    var best = inLine;
+    if (!best && dy < 0 && top.indexOf(at) < 0) best = top[0];
+    if (!best && dx && top.indexOf(at) < 0) best = near;
+    if (best) best.focus();
   }
+  function place() { return buttons().indexOf(document.activeElement) >= 0; }
   // Steps of a tenth, to the nearest ten, within what the service accepts.
   function nudge(direction) {
     var next = Math.round(speechLevel * (direction > 0 ? 1.1 : 1 / 1.1) / 10) * 10;
@@ -174,8 +220,13 @@
   mode.addEventListener('click', nextMode);
   debugButton.addEventListener('click', function () {
     if (!state) return;
-    debugButton.textContent = 'Debug log: ' + (state.debug ? 'Off' : 'On');
+    debugButton.textContent = 'Debug log: ' + (state.debug ? 'off' : 'on');
     ctl('debug ' + (state.debug ? 'off' : 'on'), function (a) { if (a) show(a); });
+  });
+  toastsButton.addEventListener('click', function () {
+    if (!state) return;
+    showToasts(!state.toasts);
+    ctl('toasts ' + (state.toasts ? 'off' : 'on'), function (a) { if (a) show(a); });
   });
   model.addEventListener('click', function () {
     window.ModelView.open(ctl, function () {
@@ -195,12 +246,19 @@
       if (window.ModelView.isOpen()) window.ModelView.close();
       else window.close();
     }
-    else if (e.keyCode === 37) move(0, -1);
-    else if (e.keyCode === 39) move(0, 1);
-    else if (e.keyCode === 38) move(-1, 0);
-    else if (e.keyCode === 40) move(1, 0);
-    else if (!place()) navigation()[0][0].focus();
+    else if (e.keyCode === 37) move(-1, 0);
+    else if (e.keyCode === 39) move(1, 0);
+    else if (e.keyCode === 38) move(0, -1);
+    else if (e.keyCode === 40) move(0, 1);
+    else if (!place() && buttons().length) buttons()[0].focus();
   });
+  // Laid out at 1200x675; zoom to fill the window (1.6 on the TV).
+  function fit() {
+    var z = Math.min(window.innerWidth / 1200, window.innerHeight / 675);
+    if (z > 0) document.documentElement.style.zoom = z;
+  }
+  window.addEventListener('resize', fit);
+  fit();
   document.addEventListener('visibilitychange', refresh);
   document.addEventListener('webOSRelaunch', refresh);
   window.addEventListener('focus', refresh);

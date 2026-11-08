@@ -25,7 +25,7 @@ window.ModelView = (function () {
   function act(button, command) {
     if (pressed) return;
     pressed = button;
-    button.className = 'busy';
+    button.className = 'ctl busy';
     button.innerHTML = BUSY_LABELS[command.split(' ')[0]] + '<span class="dots"><i>.</i><i>.</i><i>.</i></span>';
     ctl('models ' + command, function (a) {
       if (a && a.error) status.problem = a.error;
@@ -50,8 +50,8 @@ window.ModelView = (function () {
     it.fill = el('i', '', it.bar);
     it.message = el('p', 'progress', row);
     var buttons = el('div', 'row', row);
-    it.primary = el('button', '', buttons);
-    it.remove = el('button', '', buttons);
+    it.primary = el('button', 'ctl', buttons);
+    it.remove = el('button', 'ctl', buttons);
     it.primary.addEventListener('click', function () { act(it.primary, it.action); });
     it.remove.addEventListener('click', function () { act(it.remove, 'delete ' + m.id); });
     items[m.id] = it;
@@ -61,7 +61,7 @@ window.ModelView = (function () {
     loading.style.display = 'none';
     var j = s.job;
     var busy = !!j && (j.state === 'downloading' || j.state === 'checking' || j.state === 'unpacking');
-    space.textContent = 'Free space: ' + s.free + ' MB';
+    space.textContent = s.free + ' MB free on the TV. Each model is checked against a pinned checksum.';
     s.models.forEach(function (m) {
       m.room = s.free >= m.needMB;
       var it = item(m), mine = !!j && j.id === m.id;
@@ -136,7 +136,7 @@ window.ModelView = (function () {
       waiting = false;
       if (!a) return;
       if (pressed && whole && finished && taken >= finished) {
-        pressed.className = '';
+        pressed.className = 'ctl';
         pressed = null;
         finished = 0;
       }
@@ -164,7 +164,7 @@ window.ModelView = (function () {
     ctl = run;
     onClose = closed;
     document.getElementById('main').style.display = 'none';
-    panel.style.display = 'block';
+    panel.style.display = 'flex';
     closeButton.focus();
     status = status || {};
     if (!status.models) loading.style.display = 'flex';
