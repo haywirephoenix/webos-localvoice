@@ -14,7 +14,7 @@ Tested on one TV so far: an OLED55BX6LB (webOS 5.4.3, MR20 remote). Other models
 
 Needs root and the Homebrew Channel.
 
-1. In Homebrew Channel, open **Settings**, choose **Add repository** and enter `https://haywirephoenix.github.io/webos-localvoice/apps.json`.
+1. In Homebrew Channel, open **Settings**, choose **Add repository** and enter `https://haywirephoenix.github.io/webos-homebrew/apps.json`, which lists Local Voice and [Tailscale](https://github.com/haywirephoenix/webos-tailscale). The older address, `.../webos-localvoice/apps.json`, still works.
 2. Install **Local Voice** from the list of apps.
 3. Open **Local Voice**, choose **Turn on**, then download a model in **Speech models**.
 
