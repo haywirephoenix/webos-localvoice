@@ -1,4 +1,21 @@
 {
-  "total": 0,
-  "tvs": {}
+  "total": 1,
+  "tvs": {
+    "OLED55BX6LB 5.4.3": {
+      "last": "2026-11-09",
+      "model": "OLED55BX6LB",
+      "reports": 1,
+      "verified": true,
+      "version": "0.4.4",
+      "webos": "5.4.3",
+      "yes": {
+        "boot": 1,
+        "orb": 1,
+        "starts": 1,
+        "textbox": 1,
+        "words": 1,
+        "youtube": 1
+      }
+    }
+  }
 }

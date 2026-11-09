@@ -7,6 +7,8 @@ webOS version, please send a report.
 A tick means at least one person said Local Voice turned on and got their words right.
 Each column counts the reports that said yes.
 
-0 reports so far.
+1 report so far.
 
-No reports yet.
+|  | TV | webOS | Reports | Turns on | Orb | Words right | Text boxes | YouTube | After restart | Latest version | Last report |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| ✅ | OLED55BX6LB | 5.4.3 | 1 | 1/1 | 1/1 | 1/1 | 1/1 | 1/1 | 1/1 | 0.4.4 | 2026-11-09 |
