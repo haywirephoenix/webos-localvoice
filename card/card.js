@@ -146,6 +146,9 @@
     if (state === 'listening') listen();
     clearTimeout(timer);
     if (c.hold) return;
+    // Heard: the orb turns to speaking as it shrinks away, rather than resting in a state close
+    // to idle, which can look as if it is still listening.
+    if (state === 'heard') return close();
     timer = setTimeout(close, state === 'listening' || state === 'recognising' ? FOR_WORK : FOR_SHOW);
   }
   // The words stay out of the launch parameters, which the app manager writes to the system log.
