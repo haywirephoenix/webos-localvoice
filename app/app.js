@@ -222,15 +222,29 @@
     showSpeech(next);
     ctl('speech ' + next, function () {});
   }
+  // Set up: while it waits for the test phrase the button is Cancel, the arrow keys stay on it,
+  // Back cancels, and the instructions are green.
+  function tuning(on, text) {
+    tune.textContent = on ? 'Cancel' : 'Set up microphone';
+    tune.className = 'ctl' + (on ? ' active' : '');
+    note.className = 'note' + (on ? ' go' : '');
+    if (text) note.textContent = text;
+    if (on) tune.focus();
+  }
   function tuned(a) {
     if (a && (a.level || a.error)) {
       tuneEnds = 0;
       if (a.level) showSpeech(a.level);
-      note.textContent = a.level ? 'Done. Room ' + a.quiet + ', voice ' + a.voice + ', so the speech level is ' + a.level + '.' : a.error + '. Try again.';
+      tuning(false, a.level ? 'Done. Room ' + a.quiet + ', voice ' + a.voice + ', so the speech level is ' + a.level + '.' : a.error + '. Try again.');
     } else if (Date.now() > tuneEnds) {
       tuneEnds = 0;
-      note.textContent = 'Nothing heard. Try again.';
+      tuning(false, 'Nothing heard. Try again.');
     }
+  }
+  function cancelTune() {
+    tuneEnds = 0;
+    tuning(false, 'Cancelled. Set up listens to a test phrase and picks a speech level.');
+    ctl('untune', function () {});
   }
   button.addEventListener('click', function () {
     run(state && state.enabled ? 'disable' : state ? 'enable' : 'status');
@@ -261,11 +275,18 @@
   less.addEventListener('click', function () { nudge(-1); });
   more.addEventListener('click', function () { nudge(1); });
   tune.addEventListener('click', function () {
+    if (tuneEnds) return cancelTune();
     tuneEnds = Date.now() + TUNE_WAIT;
-    note.textContent = 'Hold the microphone button, wait two seconds, say a sentence in your normal voice, then let go.';
+    tuning(true, 'Hold the microphone button, wait two seconds, say a sentence in your normal voice, then let go.');
     ctl('tune', function () {});
   });
   document.addEventListener('keydown', function (e) {
+    // During set up, only its Cancel button: Back cancels, and the arrow keys stay put.
+    if (tuneEnds) {
+      if (e.keyCode === 461 || e.keyCode === 27) cancelTune();
+      else if (e.keyCode >= 37 && e.keyCode <= 40) tune.focus();
+      return;
+    }
     if (e.keyCode === 461 || e.keyCode === 27) {
       if (window.ModelView.isOpen()) window.ModelView.close();
       else window.close();

@@ -86,7 +86,7 @@ window.LV_DEMO = (function () {
      speed: 'about 0.8 s a phrase', installed: false, needMB: 400,
      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-moonshine-base-en-int8.tar.bz2'}]};
   var job = null;   // a pretend download: {id, done}
-  var typed = null;
+  var typed = null, tuneAt = 0;   // set up answers a few seconds after it is asked
 
   function answer(cmd) {
     var word = cmd.split(' ');
@@ -100,8 +100,9 @@ window.LV_DEMO = (function () {
     else if (word[0] === 'speech') st.speech = +word[1];
     else if (cmd === 'typed') { var t = typed; typed = null; return t ? {text: t} : {}; }
     else if (cmd === 'heard') return {text: words()};
-    else if (cmd === 'tune') return {ok: true};
-    else if (cmd === 'tuned') return {quiet: 60, voice: 420, level: 140};
+    else if (cmd === 'tune') { tuneAt = Date.now(); return {ok: true}; }
+    else if (cmd === 'untune') { tuneAt = 0; return st; }
+    else if (cmd === 'tuned') return tuneAt && Date.now() - tuneAt > 6000 ? (tuneAt = 0, {quiet: 60, voice: 420, level: 140}) : {};
     else if (word[0] === 'models' || cmd === 'modelstate') return modelAnswer(word[1], word[2]);
     return st;
   }

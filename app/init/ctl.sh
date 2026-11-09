@@ -10,6 +10,7 @@
 #   ctl.sh typed     the last phrase, for this app's page, once
 #   ctl.sh tune      let the next phrase set the speech level
 #   ctl.sh tuned     how that went, once
+#   ctl.sh untune    withdraw a tune that has not happened yet
 #   ctl.sh speech N  set the speech level by hand
 #   ctl.sh button M  how the remote's button works: none, hold or click
 #   ctl.sh words W   whether the card shows the words heard: on or off
@@ -239,6 +240,10 @@ case "$1" in
         touch "$RUN/tune"
         json true ""
         ;;
+    untune)
+        rm -f "$RUN/tune" "$RUN/tuned"
+        json true ""
+        ;;
     speech)
         case "$2" in
             ''|*[!0-9]*) json false "not a number" ;;
@@ -327,7 +332,7 @@ case "$1" in
         json true ""
         ;;
     *)
-        echo "usage: $0 status | enable | disable | start | stop | heard | typed | tune | tuned | speech N | button M | words W | toasts T | engine P | models C | modelstate | debug on|off" >&2
+        echo "usage: $0 status | enable | disable | start | stop | heard | typed | tune | tuned | untune | speech N | button M | words W | toasts T | engine P | models C | modelstate | debug on|off" >&2
         exit 2
         ;;
 esac

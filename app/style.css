@@ -72,6 +72,8 @@ body {
 .ctl.primary { min-width: 120px; border-color: var(--green-dim); color: var(--green); background: rgba(63,212,122,0.07); }
 .ctl.primary.is-on { border-color: var(--red-dim); color: var(--red); background: rgba(240,85,90,0.08); }
 .ctl.on { border-color: var(--green-dim); color: var(--green); }
+/* Set up, while it waits for the test phrase. */
+.ctl.active, .ctl.active:focus { border-color: var(--green); color: var(--green); background: rgba(63,212,122,0.12); box-shadow: 0 0 0 2px rgba(63,212,122,0.45); }
 .ctl.wide { width: 100%; text-align: left; }
 .ctl.step { width: 36px; padding: 9px 0; font-size: 15px; line-height: 1; }
 .ctl:disabled { opacity: 0.4; }
@@ -104,8 +106,11 @@ body {
 p { font-size: 13px; line-height: 1.5; }
 .note { margin-top: 10px; font-size: 11.5px; line-height: 1.55; color: var(--text-faint); }
 .error, .note.error { color: var(--red); }
+.note.go { color: var(--green); }
 .row { display: flex; align-items: center; }
 .row > * + * { margin-left: 8px; }
+/* Keeps its width as Cancel, so that the buttons beside it stay put. */
+#tune { min-width: 150px; }
 #speech { width: 150px; text-align: center; font-size: 12.5px; color: var(--text); }
 
 /* ---------- Microphone level's meter, and what Try it heard ---------- */

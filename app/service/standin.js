@@ -348,6 +348,8 @@ function tuneAsked() {
 }
 // The test phrase from the app's page sets the speech level for the phrases after it.
 function finishTuning(s) {
+  // Cancelled on the page while this phrase was being heard.
+  if (!fs.existsSync(TUNE)) return log('session ' + s.id + ' tuning was cancelled');
   var o = Detector.tune(s.means);
   log('session ' + s.id + ' tuned: ' + JSON.stringify(o));
   try {
