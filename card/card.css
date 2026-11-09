@@ -1,6 +1,9 @@
 html, body { margin: 0; height: 100%; background: transparent; color: #eef1f4; font-family: "LG Smart UI", Arial, sans-serif; }
 /* The orb, centred above the bottom edge, where the pill sits. */
-#orb { position: fixed; left: 0; right: 0; bottom: 56px; display: flex; justify-content: center; pointer-events: none; }
+#orb { position: fixed; left: 0; right: 0; bottom: 56px; display: flex; flex-direction: column; align-items: center; pointer-events: none; }
+/* Under the orb while the model loads, in the space below it, so that the orb stays put. */
+#orbNote { position: absolute; top: 100%; margin-top: 10px; white-space: nowrap; color: #eef1f4; font-size: 28px; line-height: 1.2; text-shadow: 0 1px 6px rgba(0, 0, 0, .8); }
+#orbNote:empty { display: none; }
 #shell { position: fixed; left: 0; right: 0; bottom: 72px; text-align: center; }
 /* One layout for every stage, so that the card keeps its size from listening to the words heard.
    Without the words line (the app's Words on the card setting) it is a narrower pill. */

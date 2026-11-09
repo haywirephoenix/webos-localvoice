@@ -14,6 +14,8 @@
 #   ctl.sh button M  how the remote's button works: none, hold or click
 #   ctl.sh words W   whether the card shows the words heard: on or off
 #   ctl.sh toasts T  whether messages may show as toasts: on or off (the default)
+#   ctl.sh engine P  performance: always (the default) keeps the model loaded, demand loads it
+#                    when the button is pressed and unloads it when unused
 #   ctl.sh models C  speech models: see service/models.js
 #   ctl.sh debug on  log each phrase, words included, to $RUN/log.txt
 #   ctl.sh debug off stop, and delete the log
@@ -31,6 +33,7 @@ DEBUG=/var/lib/webosbrew/localvoice.debug
 LINK=/var/lib/webosbrew/init.d/60-localvoice
 WORDS=/var/lib/webosbrew/localvoice.nowords
 TOASTS=/var/lib/webosbrew/localvoice.toasts
+ENGINE=/var/lib/webosbrew/localvoice.engine
 EXE=/usr/sbin/voiceconductor
 INPUT=/usr/sbin/voiceinput
 UNIT=voiceconductor.service
@@ -49,7 +52,21 @@ CLAIM=/tmp/lifesgoodwithoutspying.claim.$NAME
 STANDIN=/tmp/lifesgoodwithoutspying.answer.$NAME.pid
 export NODE_PATH=/usr/lib/nodejs
 
-json() { printf '{"ok":%s,"enabled":%s,"running":%s,"blocked":%s,"speech":%s,"button":"%s","model":"%s","debug":%s,"words":%s,"toasts":%s,"error":"%s"}\n' "$1" "$(enabled_json)" "$(running_json)" "$(blocked_json)" "$(speech_json)" "$(button_json)" "$(model_json)" "$(debug_json)" "$(words_json)" "$(toasts_json)" "$2"; }
+json() { printf '{"ok":%s,"enabled":%s,"running":%s,"blocked":%s,"speech":%s,"button":"%s","model":"%s","debug":%s,"words":%s,"toasts":%s,"engine":"%s","loaded":%s,"engine_mb":%s,"free_mb":%s,"need_mb":%s,"error":"%s"}\n' "$1" "$(enabled_json)" "$(running_json)" "$(blocked_json)" "$(speech_json)" "$(button_json)" "$(model_json)" "$(debug_json)" "$(words_json)" "$(toasts_json)" "$(engine_json)" "$(loaded_json)" "$(engine_mb)" "$(free_mb)" "$(need_mb)" "$2"; }
+engine_json() { [ "$(cat "$ENGINE" 2>/dev/null)" = demand ] && echo demand || echo always; }
+# The speech engine's pid while its model is loaded, and the memory it holds.
+engine_pid() {
+    p=$(cat "$RUN/engine.pid" 2>/dev/null)
+    [ -n "$p" ] && grep -qs lvengine "/proc/$p/cmdline" && echo "$p"
+}
+loaded_json() { [ -n "$(engine_pid)" ] && echo true || echo false; }
+engine_mb() {
+    p=$(engine_pid)
+    [ -n "$p" ] && awk '/^VmRSS:/ { printf "%d", $2 / 1024; f = 1 } END { if (!f) print 0 }' "/proc/$p/status" || echo 0
+}
+# What the model needed when it last could not load for lack of memory, or 0.
+need_mb() { awk '{ print $2 + 0; f = 1 } END { if (!f) print 0 }' "$RUN/low-memory" 2>/dev/null || echo 0; }
+free_mb() { awk '/^MemAvailable:/ { printf "%d", $2 / 1024 }' /proc/meminfo; }
 toasts_json() { [ -f "$TOASTS" ] && echo true || echo false; }
 words_json() { [ -f "$WORDS" ] && echo false || echo true; }
 debug_json() { [ -f "$DEBUG" ] && echo true || echo false; }
@@ -234,6 +251,15 @@ case "$1" in
             *) json false "not a button mode" ;;
         esac
         ;;
+    engine)
+        case "$2" in
+            always) rm -f "$ENGINE" ;;
+            demand) echo demand > "$ENGINE" ;;
+            *) json false "always or demand"; exit 0 ;;
+        esac
+        pid_running && kill -USR1 "$(cat "$RUN/node.pid")"
+        json true ""
+        ;;
     toasts)
         case "$2" in
             on) touch "$TOASTS"; json true "" ;;
@@ -301,7 +327,7 @@ case "$1" in
         json true ""
         ;;
     *)
-        echo "usage: $0 status | enable | disable | start | stop | heard | typed | tune | tuned | speech N | button M | words W | toasts T | models C | modelstate | debug on|off" >&2
+        echo "usage: $0 status | enable | disable | start | stop | heard | typed | tune | tuned | speech N | button M | words W | toasts T | engine P | models C | modelstate | debug on|off" >&2
         exit 2
         ;;
 esac

@@ -21,7 +21,20 @@ var CONF = '/var/lib/webosbrew/localvoice.conf';
 var SPEECH = '/var/lib/webosbrew/localvoice.speech';  // the speech level, if set
 var MODEL = '/var/lib/webosbrew/localvoice.model';    // the chosen model's id
 var MODELS = '/media/developer/localvoice/models';    // models.js downloads them here
-var ENGINE_MODEL = RUN + '/engine-model';             // which model has loaded
+var ENGINE_MODEL = RUN + '/engine-model';             // which model has loaded, or will load on demand
+var ENGINE_PID = RUN + '/engine.pid';                 // for ctl.sh, to report the engine's memory
+var LOW = RUN + '/low-memory';                        // "<free MB> <needed MB>" while a model could not load
+// Performance: always (the default) keeps the model loaded; demand loads it when the button is
+// pressed and unloads it after IDLE_UNLOAD without a phrase.
+var ENGINE_MODE = '/var/lib/webosbrew/localvoice.engine';
+var IDLE_UNLOAD = 5 * 60000;
+var ENGINE_WAIT = 30000;    // how long a phrase may wait for the model to load
+var LOW_MEMORY_RETRY = 60000;
+// Text under the orb while a phrase waits for the model to load. Off: the phrase is heard while
+// the model loads and recognised once it has, so there is nothing to wait for before speaking.
+var WAIT_NOTES = false;
+var KEEP_HOLDING = 'Keep holding', PLEASE_WAIT = 'Please wait';
+var LOW_MEMORY = 'Not enough free memory for voice: close an app and try again';
 var BUTTON = '/var/lib/webosbrew/localvoice.button';  // none or click, if not the default of hold
 var NO_WORDS = '/var/lib/webosbrew/localvoice.nowords';  // there when the card leaves out the words heard
 var TOASTS = '/var/lib/webosbrew/localvoice.toasts';  // there when messages may also show as toasts
@@ -107,9 +120,10 @@ function bus(uri, body, done) {
 // launch falls back to a toast, so that a message is never lost.
 // nothing marks an error that is only silence (nothing heard or recognised), which the card shows
 // more gently than a fault.
-function card(state, message, hint, nothing) {
+function card(state, message, hint, nothing, note) {
   var c = {state: state, message: message || '', hint: hint || '', words: !fs.existsSync(NO_WORDS)};
   if (nothing) c.nothing = true;
+  if (note) c.note = note;
   bus(MANAGER + 'launch', {id: CARD_APP, params: {card: c}}, function (o) {
     if (o.returnValue === false && message) toast(message);
   });
@@ -118,8 +132,13 @@ function card(state, message, hint, nothing) {
 // text, even after that window has gone. A toast does neither, so a phrase meant for a text box
 // shows a toast and no card. The words appearing in the box say the rest.
 function status(s, state, message, nothing) {
-  if (!s.plain) card(state, message, '', nothing);
+  if (!s.plain) card(state, message, '', nothing, waitNote(s, state));
   else if (state !== 'recognising') toast(message);
+}
+// While the model loads: keep holding a held button, or wait for the words.
+function waitNote(s, state) {
+  if (!WAIT_NOTES || engine.ready || !engine.child || (state !== 'listening' && state !== 'recognising')) return '';
+  return state === 'listening' && !s.message && buttonMode() === 'hold' ? KEEP_HOLDING : PLEASE_WAIT;
 }
 // Each file is removed HEARD_KEEP after its latest phrase. An earlier phrase's timer is cancelled,
 // as it would otherwise remove a newer phrase before it was read.
@@ -146,7 +165,51 @@ function blocked() {
 
 // --- the recogniser ------------------------------------------------------------------------
 
-var engine = {child: null, ready: false, waiting: null, next: null, timer: null, fails: 0, started: 0};
+var engine = {child: null, ready: false, waiting: null, next: null, timer: null, fails: 0, started: 0,
+  waiters: [], unloading: false, idle: null, lowMemory: false, retry: null};
+
+function engineMode() {
+  try { return fs.readFileSync(ENGINE_MODE, 'utf8').trim() === 'demand' ? 'demand' : 'always'; } catch (e) { return 'always'; }
+}
+// MB of memory the system could give a new process, and what a model needs at most.
+function freeMB() {
+  try { return +/MemAvailable:\s+(\d+)/.exec(fs.readFileSync('/proc/meminfo', 'utf8'))[1] / 1024; } catch (e) { return Infinity; }
+}
+function needMB(model) {
+  try {
+    var m = JSON.parse(fs.readFileSync(path.join(APP, 'models.json'), 'utf8')).filter(function (x) { return x.id === model; })[0];
+    if (m && m.memoryMB) return m.memoryMB;
+  } catch (e) {}
+  return 150;
+}
+// Calls back once the model has loaded, or with the reason it did not.
+function whenReady(cb) {
+  if (engine.ready) return cb();
+  var done = false, t = null;
+  var w = function (err) { if (!done) { done = true; clearTimeout(t); cb(err); } };
+  t = setTimeout(function () { w(new Error('engine slow')); }, ENGINE_WAIT);
+  engine.waiters.push(w);
+}
+function flushWaiters(err) {
+  var list = engine.waiters;
+  engine.waiters = [];
+  list.forEach(function (w) { w(err); });
+}
+// Loads the model if it is not, and stops any unload that was due.
+function wake() {
+  clearTimeout(engine.idle);
+  if (!engine.child) startEngine();
+}
+// In demand mode, the model is unloaded once nothing has used it for a while.
+function scheduleUnload() {
+  clearTimeout(engine.idle);
+  if (engineMode() !== 'demand') return;
+  engine.idle = setTimeout(function () {
+    if (!engine.child || engine.waiting || current) return scheduleUnload();
+    engine.unloading = true;
+    engine.child.kill();
+  }, IDLE_UNLOAD);
+}
 
 // A model may not fit beside what the TV is running. If the chosen one keeps failing, another that
 // is on the TV takes over, so that voice still works.
@@ -160,8 +223,27 @@ function modelDir() {
   return all.filter(function (m) { return m !== chosen; })[0] || '';
 }
 function startEngine() {
+  if (engine.child) return;
+  clearTimeout(engine.retry);
   var lib = path.join(RUNTIME, 'lib'), model = modelDir();
-  if (!model) return warn('no speech model on the TV');
+  if (!model) {
+    flushWaiters(new Error('no model'));
+    return warn('no speech model on the TV');
+  }
+  // A model that does not fit would take memory from the TV and its apps, or be killed half
+  // loaded. Always tries again later; demand tries at the next press.
+  var free = freeMB(), need = needMB(model);
+  engine.lowMemory = free < need;
+  try {
+    if (engine.lowMemory) fs.writeFileSync(LOW, Math.round(free) + ' ' + need);
+    else fs.unlinkSync(LOW);
+  } catch (e) {}
+  if (engine.lowMemory) {
+    warn('not enough free memory for ' + model + ': ' + Math.round(free) + ' MB free, ' + need + ' MB needed');
+    flushWaiters(new Error('low memory'));
+    if (engineMode() === 'always') engine.retry = setTimeout(startEngine, LOW_MEMORY_RETRY);
+    return;
+  }
   var c = cp.spawn(path.join(lib, 'ld-linux-armhf.so.3'),
     ['--library-path', lib, path.join(RUNTIME, 'bin/lvengine'), path.join(MODELS, model)],
     {stdio: ['pipe', 'pipe', 'pipe']});
@@ -187,6 +269,13 @@ function startEngine() {
         engine.fails = 0;
         log('engine ready after ' + (Date.now() - engine.started) + 'ms');
         try { fs.writeFileSync(ENGINE_MODEL, model); } catch (e) {}
+        try { fs.writeFileSync(ENGINE_PID, String(c.pid)); } catch (e) {}
+        flushWaiters();
+        if (!engine.waiting && !current) scheduleUnload();
+        // A phrase that was waiting shows its stage again, without the note.
+        if (current && !current.closed && (current.state === 'listening' || current.state === 'recognising')) {
+          status(current, current.state, current.state === 'listening' ? 'Listening' : 'Recognising');
+        }
       } else if (line.indexOf('TEXT ') === 0) {
         decoded(null, line.slice(5));
       }
@@ -194,12 +283,20 @@ function startEngine() {
   });
   c.on('error', function (e) { warn('engine failed to start: ' + e); });
   c.on('close', function (code) {
-    warn('engine exited: ' + code);
     engine.child = null;
     engine.ready = false;
+    try { fs.unlinkSync(ENGINE_PID); } catch (e) {}
+    if (engine.unloading) {
+      engine.unloading = false;
+      return log('engine unloaded after ' + IDLE_UNLOAD / 60000 + ' minutes unused');
+    }
+    warn('engine exited: ' + code);
     decoded(new Error('engine exited'));
+    flushWaiters(new Error('engine exited'));
     if (++engine.fails > 5) return warn('engine gave up');
-    setTimeout(startEngine, 3000);
+    // In demand mode the next press loads it again (a new model, if it was changed).
+    if (engineMode() === 'always') engine.retry = setTimeout(startEngine, 3000);
+    else try { fs.writeFileSync(ENGINE_MODEL, modelDir()); } catch (e) {}
   });
 }
 function decoded(err, text) {
@@ -208,11 +305,16 @@ function decoded(err, text) {
   clearTimeout(engine.timer);
   if (cb) cb(err, text);
   if (next) decode(next.pcm, next.cb);
+  else if (!current) scheduleUnload();
 }
 // The engine cannot drop a phrase it has begun, so one that was cancelled finishes unheard and a
 // new one waits for it.
 function decode(pcm, cb) {
-  if (!engine.ready) return cb(new Error('engine busy'));
+  // A model still loading (on demand, or after a restart) is waited for.
+  if (!engine.ready) {
+    if (!engine.child) return cb(new Error(engine.lowMemory ? 'low memory' : 'engine busy'));
+    return whenReady(function (err) { if (err) cb(err); else decode(pcm, cb); });
+  }
   if (engine.waiting) {
     if (engine.next) engine.next.cb(new Error('replaced'));
     engine.next = {pcm: pcm, cb: cb};
@@ -310,6 +412,7 @@ function close(s, note) {
   held = false;
   if (!s.keepCard && !s.plain) card('close');
   log('session ' + s.id + ' closed after ' + (Date.now() - s.begun) + 'ms: ' + note);
+  if (!engine.waiting) scheduleUnload();
 }
 
 function fail(s, message, note) {
@@ -430,6 +533,7 @@ function capture(s, why) {
     if (s.closed) return;
     var clean = String(text || '').trim().replace(/[.?!,]+$/, '');
     if (err || !clean) {
+      if (err && err.message === 'low memory' && !s.message) return fail(s, LOW_MEMORY, 'low memory');
       if (!s.message) return fail(s, 'Nothing recognised', err ? 'recognition failed' : 'nothing recognised');
       return close(s, err ? 'recognition failed' : 'nothing recognised');
     }
@@ -477,7 +581,15 @@ function start(m) {
   send(s, {event: 'registered'});
   send(s, {event: 'sttStart'});
   if (blocked()) return fail(s, BLOCKED, 'blocked');
-  if (!engine.ready) return fail(s, engine.child ? 'Voice is starting, try again in a moment' : 'Open Local Voice to download a speech model', 'engine not ready');
+  if (!modelDir()) return fail(s, 'Open Local Voice to download a speech model', 'no model');
+  // The phrase is heard while the model loads, and recognised once it has.
+  if (!engine.ready) {
+    wake();
+    if (!engine.child) return fail(s, engine.lowMemory ? LOW_MEMORY : 'Voice is starting, try again in a moment', engine.lowMemory ? 'low memory' : 'engine not ready');
+    log('session ' + s.id + ' waits for the model');
+  } else {
+    clearTimeout(engine.idle);
+  }
   status(s, 'listening', 'Listening');
   openMic(s);
 }
@@ -564,8 +676,20 @@ process.on('SIGUSR2', function () {
   engine.fails = 0;
   try { fs.unlinkSync(ENGINE_MODEL); } catch (e) {}
   if (engine.child) engine.child.kill();
-  else startEngine();
+  begin();
 });
+// ctl.sh sends this when the performance setting changes.
+process.on('SIGUSR1', function () {
+  log('performance: ' + engineMode());
+  begin();
+});
+// Always loads the model now; demand names the model that will load and leaves it unloaded until
+// a press, or unloads it after a while if it is loaded.
+function begin() {
+  if (engineMode() === 'always') return wake();
+  if (!engine.ready) try { fs.writeFileSync(ENGINE_MODEL, modelDir()); } catch (e) {}
+  scheduleUnload();
+}
 
 // --- the bus -------------------------------------------------------------------------------
 
@@ -615,6 +739,6 @@ function take() {
     setTimeout(take, 1000);
   }
 }
-startEngine();
+begin();
 take();
 setInterval(function () { return handles; }, 0x7fffffff);

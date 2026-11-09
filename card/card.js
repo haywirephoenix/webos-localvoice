@@ -32,7 +32,7 @@
   var bars = document.getElementById('bars').children;
   var line = document.getElementById('line'), text = document.getElementById('text');
   var timer = null, glide = null, scroller = null, bridge = null, feed = null, state = '', look = '';
-  var orb = null, orbConfig = null, orbLevel = 0, speaking = false;
+  var orb = null, orbConfig = null, orbLevel = 0, speaking = false, note = null;
 
   function params() {
     if (demo) return demo.card();
@@ -132,7 +132,12 @@
         state: 'idle', visible: false, inputLevel: function () { return orbLevel; }
       }));
       if (demo) window.orb = orb;   // for looking at from the developer tools
+      note = document.createElement('div');
+      note.id = 'orbNote';
+      document.getElementById('orb').appendChild(note);
     }
+    // Keep holding, or Please wait, while the model loads.
+    note.textContent = c.note || '';
     if (c.state !== state) speaking = false;
     state = c.state;
     if (state !== 'listening') orbLevel = 0;
@@ -162,13 +167,14 @@
     if (c.look !== 'pill' && window.AIOrb) return orbFill(c);
     if (orb) { orb.destroy(); orb = null; }
     if (c.state === 'heard') return heard(c);
-    fill(c, c.message || '', c.hint || '');
+    fill(c, c.message || '', c.note || c.hint || '');
   }
   function close() {
     clearTimeout(timer);
     state = '';
     box.className = '';
     if (orb && orb.visible) {
+      note.textContent = '';
       orb.hide();
       if (!demo) setTimeout(function () { if (!state) window.close(); }, ORB_SHRINK);
       return;

@@ -23,6 +23,7 @@
   var modelNote = document.getElementById('modelNote');
   var debugButton = document.getElementById('debug');
   var toastsButton = document.getElementById('toasts');
+  var engineButton = document.getElementById('engine'), engineNote = document.getElementById('engineNote');
   var modeNote = document.getElementById('modeNote');
   var pill = document.getElementById('pill');
   var pillText = document.getElementById('pillText');
@@ -107,6 +108,17 @@
   }
   // Toasts: for a phrase typed into a text box, where a card would close the keyboard, and for a
   // message whose card failed to open. Off by default.
+  // Performance: whether the speech model stays loaded or loads when the button is pressed.
+  function showEngine(a) {
+    var demand = a.engine === 'demand', low = !a.loaded && a.need_mb > 0;
+    engineButton.textContent = demand ? 'On demand' : 'Always loaded';
+    engineNote.textContent = (demand ?
+      'Slower start, less idle memory. The model loads when you press the button, which takes a few seconds, and unloads after 5 minutes unused. A toast says when it is waking up.' :
+      'Faster start, more idle memory. The model stays loaded' + (a.engine_mb ? ', using about ' + a.engine_mb + ' MB,' : '') + ' so voice answers the button at once.') +
+      (low ? ' It could not load: it needs ' + a.need_mb + ' MB and ' + a.free_mb + ' MB is free. Close an app to make room.' : '') +
+      ' Press to change.';
+    engineNote.className = low ? 'note error' : 'note';
+  }
   function showToasts(on) {
     toastsButton.textContent = 'Toasts: ' + (on ? 'on' : 'off');
     toastsButton.className = 'ctl' + (on ? ' on' : '');
@@ -121,6 +133,7 @@
       debugButton.textContent = 'Debug log: ' + (a.debug ? 'on' : 'off');
       debugButton.className = 'ctl wide' + (a.debug ? ' on' : '');
       showToasts(!!a.toasts);
+      showEngine(a);
     }
     busy = false;
     button.disabled = false;
@@ -222,6 +235,12 @@
     if (!state) return;
     debugButton.textContent = 'Debug log: ' + (state.debug ? 'off' : 'on');
     ctl('debug ' + (state.debug ? 'off' : 'on'), function (a) { if (a) show(a); });
+  });
+  engineButton.addEventListener('click', function () {
+    if (!state) return;
+    var next = state.engine === 'demand' ? 'always' : 'demand';
+    showEngine({engine: next, loaded: true});
+    ctl('engine ' + next, function (a) { if (a) show(a); });
   });
   toastsButton.addEventListener('click', function () {
     if (!state) return;

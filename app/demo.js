@@ -72,7 +72,7 @@ window.LV_DEMO = (function () {
   }
   // ---------- What ctl.sh would answer ----------
   var st = {ok: true, enabled: true, running: true, blocked: false, speech: 150, button: 'hold',
-            model: 'moonshine-tiny-en', debug: false, words: options.words !== false, toasts: false, error: ''};
+            model: 'moonshine-tiny-en', debug: false, words: options.words !== false, toasts: false, engine: 'always', loaded: true, engine_mb: 76, free_mb: 395, need_mb: 0, error: ''};
   if (look === 'off') st.enabled = st.running = false;
   if (look === 'starting') st.running = false;
   if (look === 'blocked') { st.running = false; st.blocked = true; }
@@ -96,6 +96,7 @@ window.LV_DEMO = (function () {
     else if (word[0] === 'debug') st.debug = word[1] === 'on';
     else if (word[0] === 'words') st.words = word[1] === 'on';
     else if (word[0] === 'toasts') st.toasts = word[1] === 'on';
+    else if (word[0] === 'engine') { st.engine = word[1]; st.loaded = word[1] === 'always'; st.engine_mb = st.loaded ? 76 : 0; }
     else if (word[0] === 'speech') st.speech = +word[1];
     else if (cmd === 'typed') { var t = typed; typed = null; return t ? {text: t} : {}; }
     else if (cmd === 'heard') return {text: words()};
@@ -170,6 +171,7 @@ window.LV_DEMO = (function () {
     c.hold = stage !== 'cycle';   // a chosen stage stays on screen
     c.words = st.words;
     if (options.look) c.look = options.look;
+    if (options.note && (p === 'listening' || p === 'recognising')) c.note = options.note === true ? (p === 'listening' ? 'Keep holding' : 'Please wait') : options.note;
     if (p === 'heard') typed = words();
     if (tag) tag.textContent = 'demo · ' + voice().name;
     relaunch(c);
