@@ -36,6 +36,12 @@ UNIT=voiceconductor.service
 CARD=com.haywire.localvoice.card
 NAME=com.webos.service.voiceconductor
 MOUNTS=/proc/self/mountinfo
+# lifesgoodwithoutspying stubs voiceinput, which supplies the microphone, while its Voice switch is
+# on, unless an installed app has registered for it in its keep.d folder. This app registers while
+# it is turned on and asks it to apply after each change. Its status then names this app.
+LGWS_KEEP=/var/lib/webosbrew/lifesgoodwithoutspying.keep.d/com.haywire.localvoice
+LGWS_CTL=/media/developer/apps/usr/palm/applications/ooo.lew.lifesgoodwithoutspying/init/nospy-ctl.sh
+LGWS_LINK=/var/lib/webosbrew/init.d/50-lifesgoodwithoutspying
 # lifesgoodwithoutspying answers for this name with a stand-in. Its claim file asks it to step
 # aside while a pid lives. LG's program stays hidden either way.
 CLAIM=/tmp/lifesgoodwithoutspying.claim.$NAME
@@ -118,6 +124,15 @@ card_call() {
     p=$!
     sleep 10
     kill "$p" 2>/dev/null
+}
+# Applies lifesgoodwithoutspying's settings, if it is installed and turned on. It runs as a job of
+# its own and returns at once.
+lgws_apply() {
+    [ -L "$LGWS_LINK" ] && [ -f "$LGWS_CTL" ] && sh "$LGWS_CTL" apply >/dev/null 2>&1
+}
+register() {
+    mkdir -p "$(dirname "$LGWS_KEEP")"
+    echo voiceinput > "$LGWS_KEEP"
 }
 install_card() {
     grep -qs "$(cat "$APP/card/version")" "/media/developer/apps/usr/palm/applications/$CARD/appinfo.json" && return
@@ -259,11 +274,28 @@ case "$1" in
     enable)
         echo enabled=1 > "$CONF"
         ln -sf "$HERE/boot.sh" "$LINK"
-        start
+        register
+        # lifesgoodwithoutspying has the microphone stubbed: start once its apply gives it back.
+        if is_blocked && lgws_apply; then
+            (
+                trap '' HUP
+                n=0
+                while is_blocked && [ "$n" -lt 90 ]; do
+                    sleep 2
+                    n=$((n + 2))
+                done
+                start
+            ) </dev/null >/dev/null 2>&1 &
+            json true ""
+        else
+            start
+        fi
         ;;
     disable)
-        rm -f "$CONF" "$LINK"
+        rm -f "$CONF" "$LINK" "$LGWS_KEEP"
         stop
+        # So that lifesgoodwithoutspying stubs the microphone again.
+        lgws_apply
         ( trap '' HUP; remove_card ) </dev/null >/dev/null 2>&1 &
         json true ""
         ;;
