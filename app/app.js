@@ -179,9 +179,9 @@
   }
   // The arrow keys move to the nearest button that way, on the main page or the models panel.
   function buttons() {
-    var root = document.getElementById(window.ModelView.isOpen() ? 'panel' : 'main');
+    var root = document.getElementById(window.Compat.isOpen() ? 'compat' : window.ModelView.isOpen() ? 'panel' : 'main');
     return Array.prototype.filter.call(root.getElementsByTagName('button'), function (b) {
-      return !b.disabled && b.offsetParent !== null;
+      return !b.disabled && b.getClientRects().length > 0;
     });
   }
   function move(dx, dy) {
@@ -300,6 +300,11 @@
       refresh();
     });
   });
+  var reportButton = document.getElementById('report');
+  reportButton.addEventListener('click', function () {
+    window.Compat.open(ctl, function () { (reportButton.disabled ? debugButton : reportButton).focus(); });
+  });
+  window.Compat.init(ctl);
   less.addEventListener('click', function () { nudge(-1); });
   more.addEventListener('click', function () { nudge(1); });
   tune.addEventListener('click', function () {
@@ -316,7 +321,8 @@
       return;
     }
     if (e.keyCode === 461 || e.keyCode === 27) {
-      if (window.ModelView.isOpen()) window.ModelView.close();
+      if (window.Compat.isOpen()) window.Compat.close();
+      else if (window.ModelView.isOpen()) window.ModelView.close();
       else window.close();
     }
     else if (e.keyCode === 37) move(-1, 0);

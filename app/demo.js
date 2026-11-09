@@ -104,6 +104,7 @@ window.LV_DEMO = (function () {
     else if (cmd === 'untune') { tuneAt = 0; return st; }
     else if (cmd === 'tuned') return tuneAt && Date.now() - tuneAt > 6000 ? (tuneAt = 0, {quiet: 60, voice: 420, level: 140}) : {};
     else if (word[0] === 'models' || cmd === 'modelstate') return modelAnswer(word[1], word[2]);
+    else if (cmd === 'info') return {system: {modelName: 'OLED55BX6LB', firmwareVersion: '04.40.75', sdkVersion: '5.4.0'}, webos: '5.4.3', version: '0.4.4'};
     return st;
   }
   function modelAnswer(op, id) {

@@ -1,0 +1,31 @@
+# Adds a compatibility report, sent by the relay (github.com/haywirephoenix/webos-compat), to COMPATIBILITY.md.
+# Reports can arrive together, so each run applies its own report to the latest main and retries
+# the push if another run got there first. Nothing is queued or cancelled.
+name: Compatibility report
+on:
+  repository_dispatch:
+    types: [compat-report]
+permissions:
+  contents: write
+jobs:
+  add:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add the report
+        env:
+          # Passed as a variable, never pasted into the script, so a report can't run commands.
+          PAYLOAD: ${{ toJSON(github.event.client_payload) }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for try in 1 2 3 4 5 6; do
+            git fetch -q origin main
+            git reset -q --hard origin/main
+            python3 tools/compat.py add
+            git add compat/reports.json COMPATIBILITY.md
+            git commit -q -m "Compatibility report" || exit 0
+            git push -q origin HEAD:main && exit 0
+            sleep $((try * 3 + RANDOM % 5))
+          done
+          exit 1

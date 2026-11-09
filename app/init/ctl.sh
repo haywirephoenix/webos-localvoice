@@ -20,6 +20,8 @@
 #   ctl.sh models C  speech models: see service/models.js
 #   ctl.sh debug on  log each phrase, words included, to $RUN/log.txt
 #   ctl.sh debug off stop, and delete the log
+#   ctl.sh info      the TV's model, webOS and firmware versions and this app's version, for a
+#                    compatibility report
 #
 # The swap survives only until a reboot: a bind mount hides LG's program and the running service
 # takes its name. Nothing in the system's folders is changed.
@@ -229,6 +231,13 @@ stop() {
 
 case "$1" in
     status) json true "" ;;
+    info)
+        sys=$(luna-send -n 1 luna://com.webos.service.tv.systemproperty/getSystemInfo '{"keys":["modelName","firmwareVersion","sdkVersion"]}' 2>/dev/null | tail -n 1)
+        case "$sys" in "{"*) ;; *) sys='{}' ;; esac
+        release=$(nyx-cmd OSInfo query webos_release 2>/dev/null | tr -cd '0-9.')
+        version=$(sed -n 's/.*"version": *"\([0-9.]*\)".*/\1/p' "$APP/appinfo.json")
+        printf '{"system":%s,"webos":"%s","version":"%s"}\n' "$sys" "$release" "$version"
+        ;;
     heard|typed|tuned)
         cat "$RUN/$1" 2>/dev/null || echo '{}'
         echo

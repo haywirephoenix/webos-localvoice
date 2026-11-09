@@ -70,6 +70,11 @@
           <button class="ctl wide" id="debug">Debug log: off</button>
           <p class="note">Records each phrase, including what you said and which app it went to, until the TV restarts. Turning it off deletes it.</p>
         </section>
+        <section class="card">
+          <div class="section-label">Compatibility<span id="reportCount"></span></div>
+          <button class="ctl wide" id="report">Send a report</button>
+          <p id="reportNote" class="note">Looking for testers! Help support Local Voice by sending an anonymous compatibility report.</p>
+        </section>
       </div>
     </div>
 
@@ -89,9 +94,23 @@
       <div id="list"></div>
     </div>
   </div>
+  <div id="compat" role="dialog" aria-labelledby="compatTitle">
+    <div class="sheet">
+      <div class="section-label" id="compatTitle">Compatibility report</div>
+      <p class="lead">Tick each one that is true on this TV. Leave it unticked if it isn't, or you haven't tried it.</p>
+      <div id="questions"></div>
+      <p id="aboutTv" class="note"></p>
+      <p id="sendNote" class="note"></p>
+      <div class="row end">
+        <button class="ctl" id="cancelReport">Cancel</button>
+        <button class="ctl primary" id="send" disabled>Send</button>
+      </div>
+    </div>
+  </div>
   <script src="demo.js"></script>
   <script src="level.js"></script>
   <script src="modelview.js"></script>
+  <script src="compat.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
