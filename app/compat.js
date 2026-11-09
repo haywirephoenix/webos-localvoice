@@ -26,7 +26,7 @@ window.Compat = (function () {
   var cardButton = document.getElementById('report');
   var cardNote = document.getElementById('reportNote');
   var count = document.getElementById('reportCount');
-  var ctl = null, onClose = null, open = false, info = null, sending = false, answers = {};
+  var ctl = null, onClose = null, open = false, opened = 0, info = null, sending = false, answers = {};
   var demo = !!window.LV_DEMO;
 
   function stored() {
@@ -115,6 +115,9 @@ window.Compat = (function () {
       sendButton.disabled = true;
       cancelButton.textContent = 'Close';
       cancelButton.focus();
+      // The thanks stays long enough to read, then the form closes by itself.
+      var shown = opened;
+      setTimeout(function () { if (open && opened === shown) close(); }, 2500);
       return;
     }
     var error = '';
@@ -162,6 +165,7 @@ window.Compat = (function () {
       ctl = call;
       onClose = closed;
       open = true;
+      opened++;
       answers = {};
       draw();
       say('');
