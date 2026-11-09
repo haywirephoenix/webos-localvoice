@@ -228,7 +228,7 @@ def main():
     card_files = app_files("card") + [("icon.png", (ROOT / "app/icon.png").read_bytes(), 0o644),
                                       ("level.js", (ROOT / "app/level.js").read_bytes(), 0o644)]
     # The orb, built in the AI-Orb project and copied into orb/ (see orb/README.md), and its look.
-    card_files += [("orb/" + n, (ROOT / "orb" / n).read_bytes(), 0o644) for n in ("ai-orb.js", "orb.config.json")]
+    card_files += [("orb/" + n, (ROOT / "orb" / n).read_bytes(), 0o644) for n in ("ai-orb.js", "orb.config.json", "LICENSE")]
     card, _ = package(CARD, version, card_files, "The status card of Local Voice")
     files = app_files() + [("runtime/" + n, d, m) for n, d, m in runtime_files()]
     files += [("card/card.ipk", card, 0o644), ("card/version", ('"version": "%s"' % version).encode(), 0o644)]

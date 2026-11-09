@@ -11,6 +11,7 @@ reacts to audio level. Plain JS, no framework, no runtime dependencies.
 | `ai-orb.mjs` | Same code as an ES module, for environments that support modules. |
 | `*.map` | Source maps. |
 | `orb.config.json` | The look: exported from the playground. Edit or re-export to restyle. |
+| `LICENSE` | AI-Orb's MIT licence, packed into the card beside `ai-orb.js`. |
 | `demo.html` | Working example: keys 1-6 switch state, H hides/shows, Up/Down change input level. |
 
 **Do not edit `ai-orb.js` / `ai-orb.mjs`.** They are minified build output.
