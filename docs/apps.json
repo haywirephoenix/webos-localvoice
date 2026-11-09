@@ -14,19 +14,19 @@
       "shortDescription": "Speech recognition that runs on the TV, for the remote's microphone button and apps with their own",
       "pool": "main",
       "fullDescriptionUrl": "https://haywirephoenix.github.io/webos-localvoice/full_description.html",
-      "manifestUrl": "https://github.com/haywirephoenix/webos-localvoice/releases/download/v0.4.3/com.haywire.localvoice.manifest.json",
+      "manifestUrl": "https://github.com/haywirephoenix/webos-localvoice/releases/download/v0.4.4/com.haywire.localvoice.manifest.json",
       "manifest": {
         "id": "com.haywire.localvoice",
-        "version": "0.4.3",
+        "version": "0.4.4",
         "type": "web",
         "title": "Local Voice",
         "appDescription": "Speech recognition that runs on the TV, for the remote's microphone button and apps with their own",
         "iconUri": "https://raw.githubusercontent.com/haywirephoenix/webos-localvoice/main/app/largeIcon.png",
         "sourceUrl": "https://github.com/haywirephoenix/webos-localvoice",
         "rootRequired": true,
-        "ipkUrl": "https://github.com/haywirephoenix/webos-localvoice/releases/download/v0.4.3/com.haywire.localvoice_0.4.3_all.ipk",
+        "ipkUrl": "https://github.com/haywirephoenix/webos-localvoice/releases/download/v0.4.4/com.haywire.localvoice_0.4.4_all.ipk",
         "ipkHash": {
-          "sha256": "3f9364e3babe3f1363af60adc21a730d1300933807d98a1781a0bdecfb38aada"
+          "sha256": "09553db5318a6d740355d8358ba403dcb0182a25c2712f63c18bffc61dfe58e7"
         }
       }
     }
