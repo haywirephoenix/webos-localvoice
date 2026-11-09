@@ -108,8 +108,8 @@ p { font-size: 13px; line-height: 1.5; }
 .row > * + * { margin-left: 8px; }
 #speech { width: 150px; text-align: center; font-size: 12.5px; color: var(--text); }
 
-/* ---------- Try it: the level meter and what was heard ---------- */
-#meter { position: relative; height: 10px; margin: 14px 0 12px; overflow: hidden; border-radius: 5px; background: var(--panel-2); }
+/* ---------- Microphone level's meter, and what Try it heard ---------- */
+#meter { position: relative; height: 10px; margin: 14px 0 0; overflow: hidden; border-radius: 5px; background: var(--panel-2); }
 #fill { position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: var(--text); -webkit-transform: scaleX(0); transform: scaleX(0); -webkit-transform-origin: left; transform-origin: left; transition: -webkit-transform .1s linear, transform .1s linear; }
 #meter.soft #fill { background: var(--text); }
 #meter.clear #fill { background: var(--green); }

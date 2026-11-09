@@ -19,7 +19,9 @@ var DEFAULTS = {
 
 // Where a speech level belongs, given the levels of a test phrase with some quiet in it. Halfway
 // between the room and the voice, on the logarithmic scale of hearing.
-var TUNE_WINDOWS = 15, TUNE_RATIO = 3, LEVEL_MIN = 100, LEVEL_MAX = 3000;
+// A level set by hand may go as low as LEVEL_MIN; set-up stays at TUNE_MIN or above, so that the
+// room alone cannot reach what it picks.
+var TUNE_WINDOWS = 15, TUNE_RATIO = 3, LEVEL_MIN = 10, TUNE_MIN = 100, LEVEL_MAX = 3000;
 function clamp(level) { return Math.max(LEVEL_MIN, Math.min(LEVEL_MAX, Math.round(level))); }
 function percentile(sorted, share) { return sorted[Math.floor((sorted.length - 1) * share)]; }
 function summary(means) {
@@ -31,7 +33,7 @@ function tune(means) {
   if (means.length < TUNE_WINDOWS) return {error: 'That was too short'};
   var o = summary(means);
   if (o.voice < o.quiet * TUNE_RATIO) return {error: 'Your voice did not stand out from the room'};
-  o.level = clamp(Math.sqrt(o.quiet * o.voice));
+  o.level = Math.max(TUNE_MIN, clamp(Math.sqrt(o.quiet * o.voice)));
   return o;
 }
 

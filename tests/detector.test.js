@@ -87,6 +87,10 @@ tests['tuning refuses a voice that does not stand out'] = function () {
 tests['tuning refuses a phrase that is too short'] = function () {
   assert.ok(Detector.tune([50, 900, 900]).error);
 };
+tests['a level set by hand can go below 100'] = function () {
+  assert.strictEqual(Detector.clamp(40), 40);
+  assert.strictEqual(Detector.clamp(2), 10);
+};
 tests['tuning stays in bounds'] = function () {
   assert.strictEqual(Detector.tune(phrase(10, 40)).level, 100);
   assert.strictEqual(Detector.tune(phrase(4000, 30000)).level, 3000);

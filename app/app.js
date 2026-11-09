@@ -214,10 +214,11 @@
     if (best) best.focus();
   }
   function place() { return buttons().indexOf(document.activeElement) >= 0; }
-  // Steps of a tenth, to the nearest ten, within what the service accepts.
+  // Steps of a tenth, to the nearest ten, and of ten below 100, within what the service accepts.
   function nudge(direction) {
-    var next = Math.round(speechLevel * (direction > 0 ? 1.1 : 1 / 1.1) / 10) * 10;
-    next = Math.max(100, Math.min(3000, next));
+    var next = speechLevel < 100 || (speechLevel === 100 && direction < 0) ? speechLevel + direction * 10 :
+      Math.round(speechLevel * (direction > 0 ? 1.1 : 1 / 1.1) / 10) * 10;
+    next = Math.max(10, Math.min(3000, next));
     showSpeech(next);
     ctl('speech ' + next, function () {});
   }
