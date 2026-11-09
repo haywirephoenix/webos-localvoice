@@ -199,12 +199,16 @@
       var off = dx ? Math.abs(r.top + r.height / 2 - ay) : Math.abs(r.left + r.width / 2 - ax);
       var s = along + off * 0.1;
       if (!side && s < lineScore) { lineScore = s; inLine = b; }
+      // Up and down only reach a button that is nearly in line, not one across the page.
+      if (dy && side > 150) return;
       if (along + side * 3 < nearScore) { nearScore = along + side * 3; near = b; }
     });
-    // A button in line wins. Otherwise up goes to the top line, left and right to the nearest that
-    // way below it, and down stops at the bottom.
+    // A button in line wins. Otherwise the nearest that way: up and down too, as from the speech
+    // level's - and + to the cards below them. Up with nothing above goes to the top line, and down
+    // stops at the bottom.
     var top = all.filter(function (b) { return b.parentNode.className === 'topline'; });
     var best = inLine;
+    if (!best && dy && top.indexOf(at) < 0) best = near;
     if (!best && dy < 0 && top.indexOf(at) < 0) best = top[0];
     if (!best && dx && top.indexOf(at) < 0) best = near;
     if (best) best.focus();

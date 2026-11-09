@@ -8,6 +8,7 @@
   var EXEC = 'luna://org.webosbrew.hbchannel.service/exec';
   var FOR_SHOW = 3500;    // a finished card stays this long
   var FOR_WORK = 30000;   // a working one no longer than this, should the service go quiet
+  var FOR_NOTHING = 1200; // the orb's noInput, when nothing was heard, stays only this long
   var METER = 'luna://com.webos.service.voiceconductor/getVoiceUiEvents';
   // How far each bar moves with the voice, as in the icon: the second and second-to-last bars reach
   // high and rise early (a lower RISE lifts a soft voice more), and each bar trembles on its own by
@@ -149,7 +150,7 @@
     // Heard: the orb turns to speaking as it shrinks away, rather than resting in a state close
     // to idle, which can look as if it is still listening.
     if (state === 'heard') return close();
-    timer = setTimeout(close, state === 'listening' || state === 'recognising' ? FOR_WORK : FOR_SHOW);
+    timer = setTimeout(close, state === 'listening' || state === 'recognising' ? FOR_WORK : c.nothing ? FOR_NOTHING : FOR_SHOW);
   }
   // The words stay out of the launch parameters, which the app manager writes to the system log.
   function heard(c) {
