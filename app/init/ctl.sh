@@ -28,6 +28,7 @@ SPEECH=/var/lib/webosbrew/localvoice.speech
 BUTTON=/var/lib/webosbrew/localvoice.button
 MODEL=/var/lib/webosbrew/localvoice.model
 DEBUG=/var/lib/webosbrew/localvoice.debug
+LINK=/var/lib/webosbrew/init.d/60-localvoice
 WORDS=/var/lib/webosbrew/localvoice.nowords
 TOASTS=/var/lib/webosbrew/localvoice.toasts
 EXE=/usr/sbin/voiceconductor
