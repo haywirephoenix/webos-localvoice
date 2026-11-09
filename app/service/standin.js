@@ -132,6 +132,7 @@ function card(state, message, hint, nothing, note) {
 // text, even after that window has gone. A toast does neither, so a phrase meant for a text box
 // shows a toast and no card. The words appearing in the box say the rest.
 function status(s, state, message, nothing) {
+  if (s.quiet) return;
   if (!s.plain) card(state, message, '', nothing, waitNote(s, state));
   else if (state !== 'recognising') toast(message);
 }
@@ -412,7 +413,7 @@ function close(s, note) {
   send(s, {event: 'sessionEnd'});
   if (current === s) current = null;
   held = false;
-  if (!s.keepCard && !s.plain) card('close');
+  if (!s.keepCard && !s.plain && !s.quiet) card('close');
   log('session ' + s.id + ' closed after ' + (Date.now() - s.begun) + 'ms: ' + note);
   if (!engine.waiting) scheduleUnload();
 }
@@ -523,6 +524,8 @@ function capture(s, why) {
   stopMic(s);
   if (s.means.length) log('session ' + s.id + ' levels ' + JSON.stringify(Detector.summary(s.means)));
   if (s.tuning) finishTuning(s);
+  // Set up from the app's page only measures the phrase: its words are not wanted.
+  if (s.tuning && s.quiet) return close(s, 'set up');
   var range = s.detector.range(why === 'released');
   if (!range) return s.message ? close(s, 'nothing heard') : fail(s, 'Nothing heard', 'nothing heard');
   status(s, 'recognising', 'Recognising');
@@ -576,7 +579,10 @@ function deliver(text) {
 function start(m) {
   if (current) { current.keepCard = true; close(current, 'replaced by a new request'); }
   count++;
-  var s = current = {id: count, message: m, keepCard: false, plain: field, ticket: 'localvoice' + count, begun: Date.now(), state: 'listening',
+  // This app's own page can ask for a phrase with no orb or toast: {"localvoice": {"quiet": true}}.
+  var quiet = false;
+  try { quiet = !!(m && JSON.parse(m.payload()).localvoice.quiet); } catch (e) {}
+  var s = current = {id: count, message: m, quiet: quiet, keepCard: false, plain: field, ticket: 'localvoice' + count, begun: Date.now(), state: 'listening',
     speechLevel: speechLevel(), tuning: tuneAsked(), means: [], windows: [], pending: Buffer.alloc(0), levels: [], bytes: 0, closed: false,
     sock: null, stream: null, socketSeen: false, stopped: false, retried: false};
   s.detector = new Detector({speechLevel: s.speechLevel});
@@ -584,8 +590,11 @@ function start(m) {
   send(s, {event: 'sttStart'});
   if (blocked()) return fail(s, BLOCKED, 'blocked');
   if (!modelDir()) return fail(s, 'Open Local Voice to download a speech model', 'no model');
-  // The phrase is heard while the model loads, and recognised once it has.
-  if (!engine.ready) {
+  // The phrase is heard while the model loads, and recognised once it has. Set up from the app's
+  // page needs no model.
+  if (s.tuning && s.quiet) {
+    log('session ' + s.id + ' is set up');
+  } else if (!engine.ready) {
     wake();
     if (!engine.child) return fail(s, engine.lowMemory ? LOW_MEMORY : 'Voice is starting, try again in a moment', engine.lowMemory ? 'low memory' : 'engine not ready');
     log('session ' + s.id + ' waits for the model');

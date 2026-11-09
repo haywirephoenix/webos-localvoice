@@ -72,8 +72,8 @@ body {
 .ctl.primary { min-width: 120px; border-color: var(--green-dim); color: var(--green); background: rgba(63,212,122,0.07); }
 .ctl.primary.is-on { border-color: var(--red-dim); color: var(--red); background: rgba(240,85,90,0.08); }
 .ctl.on { border-color: var(--green-dim); color: var(--green); }
-/* Set up, while it waits for the test phrase. */
-.ctl.active, .ctl.active:focus { border-color: var(--green); color: var(--green); background: rgba(63,212,122,0.12); box-shadow: 0 0 0 2px rgba(63,212,122,0.45); }
+/* Set up's Cancel, while it listens for the test phrase. */
+.ctl.active, .ctl.active:focus { border-color: var(--red); color: var(--red); background: rgba(240,85,90,0.12); box-shadow: 0 0 0 2px rgba(240,85,90,0.45); }
 .ctl.wide { width: 100%; text-align: left; }
 .ctl.step { width: 36px; padding: 9px 0; font-size: 15px; line-height: 1; }
 .ctl:disabled { opacity: 0.4; }

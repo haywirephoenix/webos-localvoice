@@ -235,16 +235,44 @@
     if (a && (a.level || a.error)) {
       tuneEnds = 0;
       if (a.level) showSpeech(a.level);
+      listener = null;
       tuning(false, a.level ? 'Done. Room ' + a.quiet + ', voice ' + a.voice + ', so the speech level is ' + a.level + '.' : a.error + '. Try again.');
     } else if (Date.now() > tuneEnds) {
       tuneEnds = 0;
+      stopListening();
       tuning(false, 'Nothing heard. Try again.');
     }
   }
   function cancelTune() {
     tuneEnds = 0;
     tuning(false, 'Cancelled. Set up listens to a test phrase and picks a speech level.');
+    stopListening();
     ctl('untune', function () {});
+  }
+  // Set up listens as YouTube's microphone button does, with no orb, so the remote's button is not
+  // needed. If the voice service will not take the request, the button still works.
+  var VOICE = 'luna://com.webos.service.voiceconductor/';
+  var listener = null;
+  function listen() {
+    stopListening();
+    var b = listener = new window.PalmServiceBridge();
+    b.onservicecallback = function (msg) {
+      var o = {};
+      try { o = JSON.parse(msg); } catch (e) {}
+      if (o.returnValue === false && listener === b && tuneEnds) {
+        listener = null;
+        note.textContent = 'Hold the microphone button, wait two seconds, say a sentence in your normal voice, then let go.';
+      }
+    };
+    b.call(VOICE + 'recognizeVoiceWithDetails', JSON.stringify({subscribe: true, autoEndDetection: true, localvoice: {quiet: true}}));
+  }
+  function stopListening() {
+    if (!listener) return;
+    try { listener.cancel(); } catch (e) {}
+    listener = null;
+    var b = new window.PalmServiceBridge();
+    b.onservicecallback = function () {};
+    b.call(VOICE + 'cancelRecognition', '{}');
   }
   button.addEventListener('click', function () {
     run(state && state.enabled ? 'disable' : state ? 'enable' : 'status');
@@ -277,8 +305,8 @@
   tune.addEventListener('click', function () {
     if (tuneEnds) return cancelTune();
     tuneEnds = Date.now() + TUNE_WAIT;
-    tuning(true, 'Hold the microphone button, wait two seconds, say a sentence in your normal voice, then let go.');
-    ctl('tune', function () {});
+    tuning(true, 'Listening: say a sentence in your normal voice, then stop.');
+    ctl('tune', function () { if (tuneEnds) listen(); });
   });
   document.addEventListener('keydown', function (e) {
     // During set up, only its Cancel button: Back cancels, and the arrow keys stay put.
