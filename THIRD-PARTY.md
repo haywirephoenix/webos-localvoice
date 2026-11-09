@@ -9,7 +9,10 @@ The IPK contains these, unchanged, in `runtime/`. Their licence texts are in `ru
 | GNU C Library 2.35 (`libc6` 2.35-0ubuntu3.8) and GCC 12.3.0 runtime libraries (`libgcc-s1`, `libstdc++6` 12.3.0-1ubuntu1~22.04), from Ubuntu 22.04.5 armhf | `lib/ld-linux-armhf.so.3`, `libc.so.6`, `libm.so.6`, `libdl.so.2`, `libpthread.so.0`, `librt.so.1`, `libgcc_s.so.1`, `libstdc++.so.6` | LGPL-2.1+ (glibc), GPL-3.0+ with the GCC Runtime Library Exception (GCC) | [Ubuntu base](https://cdimage.ubuntu.com/ubuntu-base/releases/22.04/release/); the matching source is attached to each [release](https://github.com/haywirephoenix/webos-localvoice/releases) |
 | Noto Sans (Latin, variable weight), from `@fontsource-variable/noto-sans` 5.2.10 | `fonts/NotoSans-latin-wght.woff2`, licence in `fonts/OFL.txt` | SIL Open Font License 1.1 | [notofonts/latin-greek-cyrillic](https://github.com/notofonts/latin-greek-cyrillic) |
 
-Speech models are not in the IPK. Moonshine (MIT, [moonshine-ai/moonshine](https://github.com/moonshine-ai/moonshine)), in the sherpa-onnx exports listed in `app/models.json`, is downloaded to the TV only if chosen, with its `LICENSE` beside it.
+Speech models are not in the IPK. They are downloaded to the TV only if chosen, in the sherpa-onnx exports listed in `app/models.json`:
+
+- Moonshine (MIT, [moonshine-ai/moonshine](https://github.com/moonshine-ai/moonshine)), with its `LICENSE` beside it.
+- Parakeet TDT 110M by NVIDIA (CC BY 4.0, [nvidia/parakeet-tdt_ctc-110m](https://huggingface.co/nvidia/parakeet-tdt_ctc-110m)), unchanged apart from sherpa-onnx's conversion and 8-bit quantization.
 
 `runtime/bin/lvengine` is not third-party: it is built from `native/lvengine.c` in this repository, under its MIT licence, and links to the libraries above.
 

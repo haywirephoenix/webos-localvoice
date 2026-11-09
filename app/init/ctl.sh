@@ -70,6 +70,16 @@ engine_mb() {
 # What the model needed when it last could not load for lack of memory, or 0.
 need_mb() { awk '{ print $2 + 0; f = 1 } END { if (!f) print 0 }' "$RUN/low-memory" 2>/dev/null || echo 0; }
 free_mb() { awk '/^MemAvailable:/ { printf "%d", $2 / 1024 }' /proc/meminfo; }
+total_mb() { awk '/^MemTotal:/ { printf "%d", $2 / 1024 }' /proc/meminfo; }
+# The memory an engine still loading its model holds so far, or 0.
+loading_mb() {
+    p=$(cat "$RUN/engine-loading" 2>/dev/null)
+    if [ -n "$p" ] && grep -qs lvengine "/proc/$p/cmdline"; then
+        awk '/^VmRSS:/ { printf "%d", $2 / 1024; f = 1 } END { if (!f) print 0 }' "/proc/$p/status"
+    else
+        echo 0
+    fi
+}
 toasts_json() { [ -f "$TOASTS" ] && echo true || echo false; }
 words_json() { [ -f "$WORDS" ] && echo false || echo true; }
 debug_json() { [ -f "$DEBUG" ] && echo true || echo false; }
@@ -297,8 +307,14 @@ case "$1" in
         esac
         ;;
     modelstate)
-        printf '{"free":%s,"chosen":"%s","running":"%s","job":%s}
-'             "$(df -m /media/developer | awk 'END { print $(NF - 2) }')" "$(cat "$MODEL" 2>/dev/null)"             "$(cat "$RUN/engine-model" 2>/dev/null)" "$(cat "$RUN/model-job" 2>/dev/null || echo null)"
+        # Also what the panel's bars show: the disk models go on, the TV's memory, and how far a
+        # model has loaded.
+        disk=$(df -m /media/developer | awk 'END { print $(NF - 4), $(NF - 3), $(NF - 2) }')
+        set -- $disk
+        printf '{"free":%s,"chosen":"%s","running":"%s","job":%s,"disk_total":%s,"disk_used":%s,"mem_total":%s,"mem_free":%s,"engine_mb":%s,"loading_mb":%s}\n' \
+            "$3" "$(cat "$MODEL" 2>/dev/null)" "$(cat "$RUN/engine-model" 2>/dev/null)" \
+            "$(cat "$RUN/model-job" 2>/dev/null || echo null)" "$1" "$2" "$(total_mb)" "$(free_mb)" \
+            "$(engine_mb)" "$(loading_mb)"
         ;;
     models)
         mkdir -p "$RUN"

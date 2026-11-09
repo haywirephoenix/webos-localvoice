@@ -134,10 +134,20 @@ footer { flex: none; margin-top: 2px; text-align: center; font-size: 10.5px; col
 #list { display: flex; flex-wrap: wrap; justify-content: space-between; }
 .model { width: calc((100% - 14px) / 2); background: var(--panel); border: 1px solid var(--border); border-radius: 9px; padding: 14px 16px; margin-bottom: 14px; }
 .model h2 { margin-bottom: 8px; font-size: 15px; font-weight: 700; }
+.model h2 .tag { margin-left: 10px; padding: 2px 8px; border-radius: 9px; background: #fff; color: #10161d; font-size: 11px; font-weight: 700; vertical-align: 2px; }
 .facts { font-size: 12px; color: var(--text-dim); }
 .url { margin-top: 6px; font-size: 10.5px; color: var(--text-faint); word-break: break-all; }
 .bar { height: 8px; margin-top: 12px; overflow: hidden; border-radius: 4px; background: var(--panel-2); border: 1px solid var(--border-soft); }
 .bar i { display: block; height: 100%; background: var(--blue); -webkit-transform: scaleX(0); transform: scaleX(0); -webkit-transform-origin: left; transform-origin: left; transition: -webkit-transform .4s linear, transform .4s linear; }
+.bar.white i { background: #fff; }
+/* Checking has no measure of its own, so a short stripe sweeps across. */
+.bar.wait i { width: 30%; -webkit-transform: none; transform: none; animation: sweep 1.4s ease-in-out infinite; }
+@keyframes sweep { from { margin-left: -30%; } to { margin-left: 100%; } }
+.gauges { display: none; flex: none; justify-content: space-between; margin-bottom: 14px; }
+.gauge { width: calc((100% - 14px) / 2); }
+.gauge .bar { margin-top: 6px; }
+.gauge-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-dim); }
+.gauge-label b { color: var(--text); font-weight: 600; }
 .progress { margin-top: 8px; font-size: 12px; color: var(--text-dim); }
 .progress:empty { display: none; }
 .model .row { margin-top: 12px; }

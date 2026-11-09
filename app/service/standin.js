@@ -23,6 +23,7 @@ var MODEL = '/var/lib/webosbrew/localvoice.model';    // the chosen model's id
 var MODELS = '/media/developer/localvoice/models';    // models.js downloads them here
 var ENGINE_MODEL = RUN + '/engine-model';             // which model has loaded, or will load on demand
 var ENGINE_PID = RUN + '/engine.pid';                 // for ctl.sh, to report the engine's memory
+var ENGINE_LOADING = RUN + '/engine-loading';        // the engine's pid while its model loads
 var LOW = RUN + '/low-memory';                        // "<free MB> <needed MB>" while a model could not load
 // Performance: always (the default) keeps the model loaded; demand loads it when the button is
 // pressed and unloads it after IDLE_UNLOAD without a phrase.
@@ -47,6 +48,14 @@ var IME = 'luna://com.webos.service.ime/';
 var YOUTUBE = 'youtube.leanback.v4';
 // Only part of an address: a whole one replaces the settings that give YouTube its mic button.
 var YOUTUBE_SEARCH = 'launch=voice&vq=';
+// Kodi draws its own keyboard, out of reach of the TV's, and takes text through its own remote
+// control on this port. It answers only while "Allow remote control from applications on this
+// system" is on in Kodi, and only to this TV.
+var KODI = 'org.xbmc.kodi';
+var KODI_PORT = 9090;
+var KODI_WAIT = 3000;
+var KODI_KEYBOARDS = [10103, 10109];  // its text keyboard and its number keyboard
+var KODI_OFF = 'In Kodi, turn on Allow remote control from applications on this system';
 // What the card shows, read once. It is not a launch parameter because the app manager writes
 // those to the system log.
 var HEARD = RUN + '/heard';
@@ -218,7 +227,7 @@ function modelDir() {
   var chosen = '', all = [];
   try { chosen = fs.readFileSync(MODEL, 'utf8').trim(); } catch (e) {}
   try {
-    all = fs.readdirSync(MODELS).filter(function (m) { return fs.existsSync(path.join(MODELS, m, 'encoder_model.ort')); });
+    all = fs.readdirSync(MODELS).filter(function (m) { return fs.existsSync(path.join(MODELS, m, 'tokens.txt')); });
   } catch (e) {}
   if (engine.fails < 2 && all.indexOf(chosen) >= 0) return chosen;
   return all.filter(function (m) { return m !== chosen; })[0] || '';
@@ -253,6 +262,7 @@ function startEngine() {
   engine.ready = false;
   engine.started = Date.now();
   log('engine starting with ' + model);
+  try { fs.writeFileSync(ENGINE_LOADING, String(c.pid)); } catch (e) {}
   c.stdin.on('error', function () {});
   // The TV's /etc/ld.so.preload names a library our loader cannot use, which is harmless.
   c.stderr.on('data', function (d) {
@@ -268,6 +278,7 @@ function startEngine() {
       if (line === 'READY') {
         engine.ready = true;
         engine.fails = 0;
+        try { fs.unlinkSync(ENGINE_LOADING); } catch (e) {}
         log('engine ready after ' + (Date.now() - engine.started) + 'ms');
         try { fs.writeFileSync(ENGINE_MODEL, model); } catch (e) {}
         try { fs.writeFileSync(ENGINE_PID, String(c.pid)); } catch (e) {}
@@ -287,6 +298,7 @@ function startEngine() {
     engine.child = null;
     engine.ready = false;
     try { fs.unlinkSync(ENGINE_PID); } catch (e) {}
+    try { fs.unlinkSync(ENGINE_LOADING); } catch (e) {}
     if (engine.unloading) {
       engine.unloading = false;
       return log('engine unloaded after ' + IDLE_UNLOAD / 60000 + ' minutes unused');
@@ -536,7 +548,7 @@ function capture(s, why) {
     log('session ' + s.id + ' (' + why + ') ' + (pcm.length / 2 / 16000).toFixed(2) + ' s decoded in ' + (Date.now() - t) + 'ms' +
       (err ? ': ' + err : debug() ? ': ' + JSON.stringify(text) : ''));
     if (s.closed) return;
-    var clean = String(text || '').trim().replace(/[.?!,]+$/, '');
+    var clean = unrepeat(String(text || '').trim().replace(/[.?!,]+$/, ''));
     if (err || !clean) {
       if (err && err.message === 'low memory' && !s.message) return fail(s, LOW_MEMORY, 'low memory');
       if (!s.message) return fail(s, 'Nothing recognised', err ? 'recognition failed' : 'nothing recognised');
@@ -551,6 +563,15 @@ function capture(s, why) {
     deliver(clean);
     close(s, 'ok');
   });
+}
+// The smaller models sometimes run on, repeating a short phrase many times ("settings settings
+// settings ..."). A phrase of two to four words said four or more times in a row becomes one, and
+// so does a single word said three or more times: the model repeats short words most, and a word
+// truly said three times ("no no no") is rarer than that.
+function unrepeat(text) {
+  return text
+    .replace(/(^|\s)((?:\S+\s+){1,3}?\S+)(?:\s+\2){3,}(?=\s|$)/gi, '$1$2')
+    .replace(/(^|\s)(\S+)(?:\s+\2){2,}(?=\s|$)/gi, '$1$2');
 }
 // Text from the remote's button has no app waiting for it. YouTube's search box is its own page
 // rather than a text field, so it takes the phrase as a search when launched with one.
@@ -568,6 +589,7 @@ function deliver(text) {
       bus(MANAGER + 'launch', {id: YOUTUBE, params: {contentTarget: YOUTUBE_SEARCH + encodeURIComponent(text)}});
       return;
     }
+    if (o.appId === KODI) return kodi(text);
     if (o.appId === APP_ID) {
       keep(TYPED, text);
       return showHeard(text, '');
@@ -654,6 +676,70 @@ function keyEvent(m) {
 
 // The input service stays silent towards this service's bus name, whose permissions LG's service
 // never needed, so these calls go through luna-send, which it does answer.
+// Types into Kodi's keyboard, leaving it open to check or change before choosing Done. With no
+// keyboard open the text would go nowhere, so Kodi is asked which window is showing first.
+function kodi(text) {
+  var sock = net.connect(KODI_PORT, '127.0.0.1'), buf = '', asked = 0, finished = false;
+  function call(method, params) {
+    asked++;
+    sock.write(JSON.stringify({jsonrpc: '2.0', id: asked, method: method, params: params}));
+  }
+  function end(hint) {
+    if (finished) return;
+    finished = true;
+    clearTimeout(timer);
+    sock.destroy();
+    showHeard(text, hint);
+  }
+  var timer = setTimeout(function () { log('Kodi did not answer'); end(KODI_OFF); }, KODI_WAIT);
+  sock.on('connect', function () {
+    call('GUI.GetProperties', {properties: ['currentwindow']});
+  });
+  // Kodi sends each answer as a bare JSON object, and its own notifications between them.
+  sock.on('data', function (d) {
+    buf += d;
+    var o;
+    while ((o = next())) answer(o);
+  });
+  function next() {
+    var depth = 0, quoted = false, escaped = false;
+    for (var i = 0; i < buf.length; i++) {
+      var c = buf[i];
+      if (quoted) {
+        if (escaped) escaped = false;
+        else if (c === '\\') escaped = true;
+        else if (c === '"') quoted = false;
+      } else if (c === '"') quoted = true;
+      else if (c === '{') depth++;
+      else if (c === '}' && --depth === 0) {
+        var one = buf.slice(0, i + 1);
+        buf = buf.slice(i + 1);
+        try { return JSON.parse(one); } catch (e) { return {}; }
+      }
+    }
+    return null;
+  }
+  function answer(o) {
+    if (o.id === 1) {
+      var w = o.result && o.result.currentwindow || {};
+      if (KODI_KEYBOARDS.indexOf(w.id) < 0) {
+        log('no keyboard open in Kodi');
+        return end('No text box is selected');
+      }
+      log('typing into Kodi');
+      return call('Input.SendText', {text: text, done: false});
+    }
+    if (o.id === 2) {
+      if (o.error) warn('Kodi refused the text: ' + JSON.stringify(o.error).slice(0, 120));
+      // The card shows the words, which also ends its Recognising.
+      end(o.error ? 'Kodi did not take the text' : '');
+    }
+  }
+  sock.on('error', function (e) {
+    log('Kodi: ' + e.code);
+    end(KODI_OFF);
+  });
+}
 function ime(method, body) {
   cp.execFile('luna-send', ['-n', '1', IME + method, JSON.stringify(body)], {timeout: IME_WAIT}, function () {});
 }

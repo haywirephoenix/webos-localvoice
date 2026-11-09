@@ -4,7 +4,7 @@ Speech recognition that runs on a rooted LG webOS TV. The remote's microphone bu
 
 Looking for testers! Built on an OLED55BX6LB (webOS 5.4.3, MR20 remote). If you try it on another TV, send a report from the app's **Compatibility** card: it's anonymous, and the results go in [COMPATIBILITY.md](COMPATIBILITY.md).
 
-- Hold the remote's microphone button and speak: the words go into the selected text box, or into a YouTube search.
+- Hold the remote's microphone button and speak: the words go into the selected text box, Kodi's keyboard, or a YouTube search.
 - Apps with their own microphone button get the words as their speech result.
 - A card shows a live voice level, then what was heard, without taking focus from the app beneath.
 - Speech models are downloaded in the app, from a fixed list, each checked against a pinned checksum.
@@ -17,7 +17,7 @@ Needs root and the Homebrew Channel.
 
 1. In Homebrew Channel, open **Settings**, choose **Add repository** and enter `https://haywirephoenix.github.io/webos-homebrew/apps.json`, which lists Local Voice and [Tailscale](https://github.com/haywirephoenix/webos-tailscale). The older address, `.../webos-localvoice/apps.json`, still works.
 2. Install **Local Voice** from the list of apps.
-3. Open **Local Voice**, choose **Turn on**, then download a model in **Speech models**.
+3. Open **Local Voice**, choose **Turn on**, then download a model in **Speech models**. Parakeet TDT 110M is recommended.
 
 After an update, turn Local Voice off and on again. With lifesgoodwithoutspying's **Voice** switch on, the microphone is stopped too: see [Installing](https://github.com/haywirephoenix/webos-localvoice/wiki/Installing).
 

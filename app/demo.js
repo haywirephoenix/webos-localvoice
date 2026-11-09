@@ -78,7 +78,11 @@ window.LV_DEMO = (function () {
   if (look === 'blocked') { st.running = false; st.blocked = true; }
   if (look === 'error') st.error = 'The speech engine stopped. See Troubleshooting.';
   if (look === 'nomodel') st.model = '';
-  var models = {free: 460, chosen: st.model, running: st.model, job: null, models: [
+  var models = {free: 460, chosen: st.model, running: st.model, job: null, disk_total: 2361, disk_used: 1901,
+    mem_total: 1599, mem_free: 640, engine_mb: 76, loading_mb: 0, models: [
+    {id: 'parakeet-tdt-110m-en', name: 'Parakeet TDT 110M (quantized)', recommended: true, bytes: 108035095, diskMB: 131, memoryMB: 190,
+     speed: 'about 0.9 s per second of speech', installed: false, needMB: 285,
+     url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet_tdt_transducer_110m-en-36000-int8.tar.bz2'},
     {id: 'moonshine-tiny-en', name: 'Moonshine tiny-en', bytes: 29858559, diskMB: 110, memoryMB: 180,
      speed: 'about 0.3 s a phrase', installed: look !== 'nomodel', needMB: 120,
      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-moonshine-tiny-en-int8.tar.bz2'},

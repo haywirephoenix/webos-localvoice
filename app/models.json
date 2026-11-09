@@ -1,5 +1,23 @@
 [
   {
+    "id": "parakeet-tdt-110m-en",
+    "name": "Parakeet TDT 110M (quantized)",
+    "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet_tdt_transducer_110m-en-36000-int8.tar.bz2",
+    "folder": "./sherpa-onnx-nemo-parakeet_tdt_transducer_110m-en-36000-int8",
+    "sha256": "f628312e9fdf8686374cb01a69425c41732529d540860311f16f37cbc32cfe9b",
+    "bytes": 108035095,
+    "diskMB": 131,
+    "memoryMB": 190,
+    "speed": "about 0.9 s per second of speech",
+    "files": [
+      "encoder.int8.onnx",
+      "decoder.int8.onnx",
+      "joiner.int8.onnx",
+      "tokens.txt"
+    ],
+    "recommended": true
+  },
+  {
     "id": "moonshine-tiny-en",
     "name": "Moonshine tiny-en (quantized)",
     "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-moonshine-tiny-en-quantized-2026-02-27.tar.bz2",
@@ -8,7 +26,13 @@
     "bytes": 29858559,
     "diskMB": 44,
     "memoryMB": 120,
-    "speed": "about 0.5 s per second of speech"
+    "speed": "about 0.5 s per second of speech",
+    "files": [
+      "encoder_model.ort",
+      "decoder_model_merged.ort",
+      "tokens.txt",
+      "LICENSE"
+    ]
   },
   {
     "id": "moonshine-base-en",
@@ -19,6 +43,12 @@
     "bytes": 111266225,
     "diskMB": 141,
     "memoryMB": 320,
-    "speed": "about 0.9 s per second of speech"
+    "speed": "about 0.9 s per second of speech",
+    "files": [
+      "encoder_model.ort",
+      "decoder_model_merged.ort",
+      "tokens.txt",
+      "LICENSE"
+    ]
   }
 ]

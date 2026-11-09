@@ -16,7 +16,6 @@ var CHOSEN = process.env.LV_CHOSEN || '/var/lib/webosbrew/localvoice.model';
 var LIST = JSON.parse(fs.readFileSync(path.join(__dirname, '../models.json'), 'utf8'));
 var INSTALLED = ROOT + '/models', NEW = ROOT + '/new';
 var JOB = RUN + '/model-job', ENGINE_MODEL = RUN + '/engine-model', SERVICE = RUN + '/node.pid';
-var FILES = ['encoder_model.ort', 'decoder_model_merged.ort', 'tokens.txt', 'LICENSE'];
 var SPARE_MB = 50;           // left free after the archive and the unpacked model both fit
 var PROGRESS = 500;          // ms between progress reports
 var STALL_SECONDS = '30';    // curl gives up after this long below STALL_RATE bytes a second
@@ -25,7 +24,11 @@ var WORKING = ['downloading', 'checking', 'unpacking'];
 
 function read(file) { try { return fs.readFileSync(file, 'utf8').trim(); } catch (e) { return ''; } }
 function find(id) { return LIST.filter(function (m) { return m.id === id; })[0]; }
-function installed(id) { return fs.existsSync(path.join(INSTALLED, id, 'encoder_model.ort')); }
+// A model is installed once all of its files are there.
+function installed(id) {
+  var m = find(id);
+  return !!m && m.files.every(function (f) { return fs.existsSync(path.join(INSTALLED, id, f)); });
+}
 function chosen() { var id = read(CHOSEN); return installed(id) ? id : ''; }
 function remove(p) { cp.spawnSync('rm', ['-rf', p]); }
 function mkdirs(p) { cp.spawnSync('mkdir', ['-p', p]); }
@@ -60,7 +63,7 @@ function tellService() {
 function status() {
   var free = freeMB();
   return {free: free, chosen: chosen(), running: read(ENGINE_MODEL), job: job(), models: LIST.map(function (m) {
-    return {id: m.id, name: m.name, url: m.url, bytes: m.bytes, diskMB: m.diskMB, memoryMB: m.memoryMB, speed: m.speed,
+    return {id: m.id, name: m.name, url: m.url, bytes: m.bytes, diskMB: m.diskMB, memoryMB: m.memoryMB, speed: m.speed, recommended: !!m.recommended,
       installed: installed(m.id), needMB: needMB(m), room: free >= needMB(m)};
   })};
 }
@@ -152,11 +155,13 @@ function worker(id) {
     remove(path.join(INSTALLED, id));
     fs.renameSync(unpacked, path.join(INSTALLED, id));
     if (!chosen()) use(id);
-    finish({state: 'done', done: m.bytes});
+    finish({state: 'done', done: m.bytes, total: m.bytes});
   }
   function unpack() {
     mkdirs(unpacked);
-    step('unpacking', 'tar', ['-xjf', archive, '-C', unpacked, '--strip-components=1'].concat(FILES.map(function (f) { return m.folder + '/' + f; })), function (code) {
+    // folder is the archive's top folder as tar lists it, "./" included where the archive has it.
+    var strip = '--strip-components=' + m.folder.split('/').length;
+    step('unpacking', 'tar', ['-xjf', archive, '-C', unpacked, strip].concat(m.files.map(function (f) { return m.folder + '/' + f; })), function (code) {
       if (code !== 0) return fail('The file could not be unpacked');
       done();
     });
@@ -165,6 +170,14 @@ function worker(id) {
   mkdirs(NEW);
   var last = 0, lastAt = Date.now();
   timer = setInterval(function () {
+    // Unpacking counts from nothing again, up to the model's size on disk.
+    if (state.state === 'unpacking') {
+      state.total = m.diskMB * 1048576;
+      state.done = m.files.reduce(function (sum, f) {
+        try { return sum + fs.statSync(path.join(unpacked, f)).size; } catch (e) { return sum; }
+      }, 0);
+      return report(state);
+    }
     if (state.state !== 'downloading') return;
     try { state.done = fs.statSync(archive).size; } catch (e) {}
     var now = Date.now();

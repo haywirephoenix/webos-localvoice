@@ -14,8 +14,9 @@ var models = require('../app/service/models');
 function install(id) {
   fs.mkdirSync(T + '/store/models', {recursive: true});
   fs.mkdirSync(T + '/store/models/' + id, {recursive: true});
-  fs.writeFileSync(T + '/store/models/' + id + '/encoder_model.ort', 'x');
+  files(id).forEach(function (f) { fs.writeFileSync(T + '/store/models/' + id + '/' + f, 'x'); });
 }
+function files(id) { return models.find(id).files; }
 var TINY = 'moonshine-tiny-en', BASE = 'moonshine-base-en';
 
 var tests = {
@@ -23,8 +24,15 @@ var tests = {
     models.LIST.forEach(function (m) {
       assert.ok(/^[0-9a-f]{64}$/.test(m.sha256), m.id);
       assert.ok(m.url.indexOf('https://github.com/k2-fsa/') === 0, m.id);
-      assert.ok(m.url.indexOf(m.folder) > 0, m.id);
+      assert.ok(m.url.indexOf(m.folder.replace(/^\.\//, '')) > 0, m.id);
+      assert.ok(m.files.indexOf('tokens.txt') >= 0, m.id);
     });
+  },
+  'a model missing a file is not installed': function () {
+    install('parakeet-tdt-110m-en');
+    fs.unlinkSync(T + '/store/models/parakeet-tdt-110m-en/joiner.int8.onnx');
+    assert.strictEqual(models.status().models.filter(function (m) { return m.id === 'parakeet-tdt-110m-en'; })[0].installed, false);
+    fs.rmSync(T + '/store/models/parakeet-tdt-110m-en', {recursive: true});
   },
   'only listed models can be fetched': function () {
     assert.ok(models.get('../evil').error);
@@ -56,7 +64,7 @@ var tests = {
   },
   'the layout of 0.3.4 is moved': function () {
     fs.mkdirSync(T + '/store/base');
-    fs.writeFileSync(T + '/store/base/encoder_model.ort', 'x');
+    files(BASE).forEach(function (f) { fs.writeFileSync(T + '/store/base/' + f, 'x'); });
     fs.writeFileSync(T + '/chosen', 'base\n');
     models.migrate();
     assert.strictEqual(models.status().chosen, BASE);
