@@ -39,3 +39,9 @@ Compatibility reports go through a small Cloudflare Worker, [webos-compat](https
 ## Licence
 
 MIT, see [LICENSE](LICENSE). The package includes third-party libraries, listed in [THIRD-PARTY.md](THIRD-PARTY.md). Speech models are downloaded separately.
+
+## Thanks
+
+The voice orb is based on the work of [AI-Orb](https://github.com/weeeha/AI-Orb) by Nick Vyhouski (weeeha), under the MIT licence, with many changes for Local Voice: one finish with an adjustable ring, a look for each state that reacts to how loud you are, error and no-input states, a see-through body, a grow and shrink animation, and a plain-JavaScript build that runs on webOS 5. The changes are on the [`local-voice` branch](https://github.com/haywirephoenix/AI-Orb/tree/local-voice) of a fork.
+
+Speech recognition runs on [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx), with [Parakeet](https://huggingface.co/nvidia/parakeet-tdt_ctc-110m) by NVIDIA and [Moonshine](https://github.com/moonshine-ai/moonshine) by Moonshine AI.
