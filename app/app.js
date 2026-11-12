@@ -144,8 +144,8 @@
     } else if (a.blocked) {
       state3('blocked', 'bad', a.enabled ? 'On, waiting for the microphone service' : 'Off, and the microphone service is off',
         a.enabled ?
-        'Blocked: this TV\'s microphone service is turned off, so apps get no microphone. A privacy tool may have done this, such as the Voice switch in Life\'s Good Without Spying. This resumes by itself once the service is back.' :
-        'This TV\'s microphone service is also turned off, and it has to be back before this can work. A privacy tool may have done this, such as the Voice switch in Life\'s Good Without Spying.');
+        'Blocked: this TV\'s microphone service is turned off, so apps get no microphone. A privacy tool may have done this. In Life\'s Good Without Spying 0.12 or later, turn on both Local Voice exceptions in its Exceptions tab and choose Apply changes. This resumes by itself once the service is back.' :
+        'This TV\'s microphone service is also turned off, and it has to be back before this can work. A privacy tool may have done this. In Life\'s Good Without Spying 0.12 or later, turn on both Local Voice exceptions in its Exceptions tab and choose Apply changes.');
     } else if (a.error) {
       state3('problem', 'bad', a.enabled ? 'On, with a problem' : 'Off', a.error);
     } else if (a.running) {

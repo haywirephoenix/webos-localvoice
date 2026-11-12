@@ -164,7 +164,7 @@ function showHeard(text, hint) {
 }
 
 // Something has hidden voiceinput, which supplies the microphone: usually lifesgoodwithoutspying's
-// Voice switch, unless its Keep microphone service setting is on. It need not be that, so the
+// Voice switch, unless the user allows this app's exception there. It need not be that, so the
 // message names no one. It is someone's privacy choice, so it is reported and never undone, and
 // everything resumes when voiceinput is back.
 var BLOCKED = "Voice is blocked: this TV's microphone service is turned off";

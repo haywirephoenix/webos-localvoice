@@ -44,13 +44,18 @@ CARD=com.haywire.localvoice.card
 NAME=com.webos.service.voiceconductor
 MOUNTS=/proc/self/mountinfo
 # lifesgoodwithoutspying stubs voiceinput, which supplies the microphone, while its Voice switch is
-# on, unless an installed app has registered for it in its keep.d folder. This app registers while
-# it is turned on and asks it to apply after each change. Its status then names this app.
-LGWS_KEEP=/var/lib/webosbrew/lifesgoodwithoutspying.keep.d/com.haywire.localvoice
+# on, and answers for this service's name with a stand-in. This app asks for two exceptions while it
+# is turned on: to keep voiceinput, and to claim the name from the stand-in. Each counts only once
+# the user turns it on in lifesgoodwithoutspying's Exceptions tab and applies; until then the
+# microphone stays off. It is asked to apply after each change.
+ID=com.haywire.localvoice
+LGWS_EXCEPT=/var/lib/webosbrew/lifesgoodwithoutspying.exceptions.d/$ID
+LGWS_OLD_KEEP=/var/lib/webosbrew/lifesgoodwithoutspying.keep.d/$ID
+LGWS_APPLIED=/var/lib/webosbrew/lifesgoodwithoutspying.conf-applied
 LGWS_CTL=/media/developer/apps/usr/palm/applications/ooo.lew.lifesgoodwithoutspying/init/nospy-ctl.sh
 LGWS_LINK=/var/lib/webosbrew/init.d/50-lifesgoodwithoutspying
-# lifesgoodwithoutspying answers for this name with a stand-in. Its claim file asks it to step
-# aside while a pid lives. LG's program stays hidden either way.
+# The claim holds the pid of this service, its start time and this app's id, so that a pid reused
+# after it exits claims nothing. LG's program stays hidden either way.
 CLAIM=/tmp/lifesgoodwithoutspying.claim.$NAME
 STANDIN=/tmp/lifesgoodwithoutspying.answer.$NAME.pid
 export NODE_PATH=/usr/lib/nodejs
@@ -98,7 +103,7 @@ pid_running() {
 }
 running_json() { pid_running && echo true || echo false; }
 # lifesgoodwithoutspying's Voice toggle stubs voiceinput too, and without it there is no mic,
-# unless its Keep microphone service setting leaves voiceinput alone. That is the user's choice
+# unless the user allows this app's exception for it there. That is the user's choice
 # to make there: this only reads the result.
 is_blocked() { grep -q " $INPUT " /proc/mounts; }
 blocked_json() { is_blocked && echo true || echo false; }
@@ -140,13 +145,25 @@ give_back() {
     done
     [ -z "$(stack)" ] && systemctl --no-block start "$UNIT"
 }
-claim_name() {
-    echo "$1" > "$CLAIM"
-    [ -f "$STANDIN" ] || return 0
+# Process $1's start time, in clock ticks since boot: field 22 of its stat, counted from the last
+# ")" as the name can hold spaces.
+start_time() { sed 's/.*) //' "/proc/$1/stat" 2>/dev/null | cut -d' ' -f20; }
+# Exit 0 if the user allowed this app's exception $1 (keep:voiceinput or claim:<service>) in
+# lifesgoodwithoutspying, and applied it.
+lgws_allows() { [ "$(grep "^exception\.$ID:$1=" "$LGWS_APPLIED" 2>/dev/null | tail -n 1)" = "exception.$ID:$1=on" ]; }
+# lifesgoodwithoutspying's stand-in pid, if it is answering for this name.
+standin_pid() {
+    [ -f "$STANDIN" ] || return 1
     p=$(cat "$STANDIN")
     case " $(tr '\000' ' ' 2>/dev/null < "/proc/$p/cmdline") " in
-        *"/nospy-luna-stub.js "*) kill -KILL "$p" ;;
+        *"/nospy-luna-stub.js "*) echo "$p"; return 0 ;;
     esac
+    return 1
+}
+claim_name() {
+    echo "$1 $(start_time "$1") $ID" > "$CLAIM"
+    lgws_allows "claim:$NAME" || return 0
+    p=$(standin_pid) && kill -KILL "$p"
 }
 # A window's type is fixed per app and a package holds one app, so the card ships as a package
 # inside this one. Without it the service falls back to toasts.
@@ -162,8 +179,17 @@ lgws_apply() {
     [ -L "$LGWS_LINK" ] && [ -f "$LGWS_CTL" ] && sh "$LGWS_CTL" apply >/dev/null 2>&1
 }
 register() {
-    mkdir -p "$(dirname "$LGWS_KEEP")"
-    echo voiceinput > "$LGWS_KEEP"
+    mkdir -p "$(dirname "$LGWS_EXCEPT")"
+    printf 'keep voiceinput\nclaim %s\n' "$NAME" > "$LGWS_EXCEPT"
+    rm -f "$LGWS_OLD_KEEP"
+}
+# Why the microphone is off, naming lifesgoodwithoutspying's setting when that is the reason.
+blocked_reason() {
+    if [ -f "$LGWS_EXCEPT" ] && ! lgws_allows keep:voiceinput; then
+        echo "the microphone service is turned off: allow Local Voice in lifesgoodwithoutspying's Exceptions tab"
+    else
+        echo "the microphone service is turned off"
+    fi
 }
 install_card() {
     grep -qs "$(cat "$APP/card/version")" "/media/developer/apps/usr/palm/applications/$CARD/appinfo.json" && return
@@ -180,7 +206,12 @@ start() {
     ( trap '' HUP; install_card ) </dev/null >/dev/null 2>&1 &
     pid_running && { json true ""; return; }
     if is_blocked; then
-        json false "the microphone service is turned off"
+        json false "$(blocked_reason)"
+        return
+    fi
+    # Its stand-in would hold the name this service needs.
+    if standin_pid >/dev/null && ! lgws_allows "claim:$NAME"; then
+        json false "lifesgoodwithoutspying answers for voice: allow Local Voice in its Exceptions tab"
         return
     fi
     if ! hide_lg; then
@@ -349,7 +380,7 @@ case "$1" in
         fi
         ;;
     disable)
-        rm -f "$CONF" "$LINK" "$LGWS_KEEP"
+        rm -f "$CONF" "$LINK" "$LGWS_EXCEPT" "$LGWS_OLD_KEEP"
         stop
         # So that lifesgoodwithoutspying stubs the microphone again.
         lgws_apply

@@ -30,7 +30,7 @@ function run(script, roots) {
   }).join(''));
   fs.writeFileSync(t + '/calls', '');
   var r = cp.spawnSync('sh', ['-s'], {
-    input: [FUNCTIONS, FAKES, 'MOUNTS="$T/mounts"', 'RUN="$T"', 'CLAIM="$T/claim"', 'STANDIN="$T/standin"', script, ''].join('\n'),
+    input: [FUNCTIONS, FAKES, 'MOUNTS="$T/mounts"', 'RUN="$T"', 'CLAIM="$T/claim"', 'STANDIN="$T/standin"', 'LGWS_APPLIED="$T/applied"', script, ''].join('\n'),
     encoding: 'utf8',
     env: Object.assign({}, process.env, {T: t})
   });
@@ -78,8 +78,23 @@ var tests = {
   'hide_lg binds when nothing hides LG\'s program': function () {
     assert.deepStrictEqual(run('hide_lg', []).left, [OURS]);
   },
-  'claim_name writes the pid and spares a pid that is not the stand-in': function () {
-    assert.strictEqual(run('echo $$ > "$STANDIN"; claim_name 1234; echo alive; cat "$CLAIM"', []).out, 'alive\n1234');
+  'claim_name writes the pid, its start time and the app, and spares a pid that is not the stand-in': function () {
+    var out = run('echo "exception.$ID:claim:$NAME=on" > "$LGWS_APPLIED"; echo $$ > "$STANDIN"; ' +
+      'claim_name $$; echo alive; cat "$CLAIM"; echo "$$ $(start_time $$)"', []).out.split('\n');
+    assert.strictEqual(out[0], 'alive');
+    assert.strictEqual(out[1], out[2] + ' com.haywire.localvoice');
+    assert(/^\d+ \d+$/.test(out[2]), out[2]);
+  },
+  'lgws_allows reads the last applied setting for this app': function () {
+    function allows(applied) {
+      return run('printf "' + applied + '" > "$LGWS_APPLIED"; lgws_allows keep:voiceinput && echo yes || echo no', []).out;
+    }
+    var key = 'exception.com.haywire.localvoice:keep:voiceinput';
+    assert.strictEqual(allows(key + '=on\\n'), 'yes');
+    assert.strictEqual(allows(key + '=off\\n'), 'no');
+    assert.strictEqual(allows(key + '=on\\n' + key + '=off\\n'), 'no');
+    assert.strictEqual(allows('exception.com.other:keep:voiceinput=on\\n'), 'no');
+    assert.strictEqual(allows(''), 'no');
   }
 };
 

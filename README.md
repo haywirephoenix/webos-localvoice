@@ -19,7 +19,7 @@ Needs root and the Homebrew Channel.
 2. Install **Local Voice** from the list of apps.
 3. Open **Local Voice**, choose **Turn on**, then download a model in **Speech models**. Parakeet TDT 110M is recommended.
 
-After an update, turn Local Voice off and on again. With lifesgoodwithoutspying's **Voice** switch on, the microphone is stopped too: see [Installing](https://github.com/haywirephoenix/webos-localvoice/wiki/Installing).
+After an update, turn Local Voice off and on again. With lifesgoodwithoutspying's **Voice** switch on, turn on both Local Voice exceptions in its **Exceptions** tab (0.12 or later) and apply: see [Installing](https://github.com/haywirephoenix/webos-localvoice/wiki/Installing).
 
 ## Documentation
 
