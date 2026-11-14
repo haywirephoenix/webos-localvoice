@@ -1,5 +1,5 @@
 {
-  "total": 2,
+  "total": 3,
   "tvs": {
     "OLED55BX6LB 5.4.3": {
       "last": "2026-11-09",
@@ -26,6 +26,16 @@
       "yes": {
         "boot": 1,
         "orb": 1,
+        "starts": 1
+      }
+    },
+    "OLED55C6PUA.ACCQLJD 11.1.0": {
+      "last": "2026-11-14",
+      "model": "OLED55C6PUA.ACCQLJD",
+      "reports": 1,
+      "version": "0.5.1",
+      "webos": "11.1.0",
+      "yes": {
         "starts": 1
       }
     }
