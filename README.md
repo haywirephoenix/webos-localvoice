@@ -19,7 +19,7 @@ Needs root and the Homebrew Channel.
 2. Install **Local Voice** from the list of apps.
 3. Open **Local Voice**, choose **Turn on**, then download a model in **Speech models**. Parakeet TDT 110M is recommended.
 
-After an update, turn Local Voice off and on again. With lifesgoodwithoutspying's **Voice** switch on, turn on both Local Voice exceptions in its **Exceptions** tab (0.12 or later) and apply: see [Installing](https://github.com/haywirephoenix/webos-localvoice/wiki/Installing).
+After an update, turn Local Voice off and on again. With lifesgoodwithoutspying's **Voice** switch on, enable the Local Voice entries in its **Exceptions** tab and apply. TVs with a separate `voiceinput_hidraw` service also need a lifesgoodwithoutspying version that offers that exception. See [Installing](https://github.com/haywirephoenix/webos-localvoice/wiki/Installing).
 
 ## Documentation
 
@@ -32,7 +32,7 @@ pip install ziglang
 python tools/build.py
 ```
 
-Run the tests with `node tests/detector.test.js`, `node tests/ctl.test.js`, `node tests/models.test.js` and `python tests/compat.test.py`.
+Run the tests with `node tests/detector.test.js`, `node tests/ctl.test.js`, `node tests/models.test.js`, `node tests/voiceinput.test.js` and `python tests/compat.test.py`.
 
 Compatibility reports go through a small Cloudflare Worker, [webos-compat](https://github.com/haywirephoenix/webos-compat), shared with Tailscale.
 

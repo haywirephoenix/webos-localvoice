@@ -14,7 +14,6 @@ var API = '/usr/share/luna-service2/api-permissions.d/' + NAME + '.api.json';
 var VOICEINPUT = 'luna://com.webos.service.voiceinput/';
 var MIC = '{"deviceType":"remote","keyType":"thinQtv"}';
 var MIC_SUBSCRIBE = '{"deviceType":"remote","keyType":"thinQtv","subscribe":true}';
-var SOCKET = '/tmp/voiceinput_remote1.soc';
 var APP = path.dirname(__dirname), RUNTIME = path.join(APP, 'runtime');
 var RUN = '/tmp/localvoice', LOG = RUN + '/log.txt';
 var CONF = '/var/lib/webosbrew/localvoice.conf';
@@ -414,7 +413,7 @@ function stopMic(s) {
   clearTimeout(s.noReply);
   if (s.sock) { try { s.sock.destroy(); } catch (e) {} s.sock = null; }
   meterEvent({mean: 0, speechLevel: s.speechLevel});
-  if (s.socketSeen && !s.stopped) { s.stopped = true; stopStreaming('session ' + s.id); }
+  if (s.socketPath && !s.stopped) { s.stopped = true; stopStreaming('session ' + s.id); }
   if (s.stream) { hang(s.stream); s.stream = null; }
 }
 function close(s, note) {
@@ -443,7 +442,7 @@ function openMic(s) {
   // A stale stream can swallow the request: clear it and try once more rather than hang.
   clearTimeout(s.noReply);
   s.noReply = setTimeout(function () {
-    if (s.closed || s.socketSeen || s.state !== 'listening') return;
+    if (s.closed || s.socketPath || s.state !== 'listening') return;
     warn('session ' + s.id + ' no stream: ' + out.replace(/\s+/g, ' ').slice(0, 160));
     hang(l);
     s.stream = null;
@@ -456,7 +455,8 @@ function openMic(s) {
     s.retry = setTimeout(function () { openMic(s); }, 400);
   }, STREAM_WAIT);
   l.addListener('response', function (msg) {
-    out += msg.payload();
+    if (s.stream !== l || s.socketPath) return;
+    out = String(msg.payload());
     if (/Unknown method/.test(out)) {
       // Something else answers for voiceinput: retrying cannot help.
       warn('session ' + s.id + ' no microphone service: ' + out.replace(/\s+/g, ' ').slice(0, 120));
@@ -471,16 +471,20 @@ function openMic(s) {
       s.retry = setTimeout(function () { openMic(s); }, 300);
       return;
     }
-    if (/"socketPath"/.test(out) && !s.socketSeen) {
-      s.socketSeen = true;
-      clearTimeout(s.noReply);
-      connect(s);
-    }
+    var reply;
+    try { reply = JSON.parse(out); } catch (e) { return; }
+    if (!reply || reply.returnValue === false || typeof reply.socketPath !== 'string' ||
+        reply.socketPath.charAt(0) !== '/' || reply.socketPath.indexOf('\0') !== -1) return;
+    // voiceinput names the local socket for this stream. Its directory and remote ID vary by TV.
+    s.socketPath = reply.socketPath;
+    clearTimeout(s.noReply);
+    log('session ' + s.id + ' microphone socket: ' + s.socketPath);
+    connect(s);
   });
 }
 function connect(s) {
   if (s.closed || s.sock || s.state !== 'listening') return;
-  var c = net.connect(SOCKET);
+  var c = net.connect(s.socketPath);
   c.on('connect', function () { s.sock = c; });
   c.on('error', function () {
     if (Date.now() - s.begun > SOCKET_WAIT) return close(s, 'socket error');
@@ -606,7 +610,7 @@ function start(m) {
   try { quiet = !!(m && JSON.parse(m.payload()).localvoice.quiet); } catch (e) {}
   var s = current = {id: count, message: m, quiet: quiet, keepCard: false, plain: field, ticket: 'localvoice' + count, begun: Date.now(), state: 'listening',
     speechLevel: speechLevel(), tuning: tuneAsked(), means: [], windows: [], pending: Buffer.alloc(0), levels: [], bytes: 0, closed: false,
-    sock: null, stream: null, socketSeen: false, stopped: false, retried: false};
+    sock: null, stream: null, socketPath: null, stopped: false, retried: false};
   s.detector = new Detector({speechLevel: s.speechLevel});
   send(s, {event: 'registered'});
   send(s, {event: 'sttStart'});
