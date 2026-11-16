@@ -34,6 +34,7 @@
   var line = document.getElementById('line'), text = document.getElementById('text');
   var timer = null, glide = null, scroller = null, bridge = null, feed = null, state = '', look = '';
   var orb = null, orbConfig = null, orbLevel = 0, speaking = false, note = null;
+  var waitingForMic = '', readyMic = '';
 
   function params() {
     if (demo) return demo.card();
@@ -49,6 +50,10 @@
   }
   // Levels arrive ten times a second, and the transition in the stylesheet fills the gaps.
   function level(o) {
+    if (o.micReady) {
+      readyMic = o.micReady;
+      if (waitingForMic === readyMic) document.body.style.visibility = '';
+    }
     if (orb) orbLevel = state === 'listening' && typeof o.mean === 'number' ? window.VoiceLevel.height(o.mean) : 0;
     if (orb && state === 'listening' && !speaking && o.mean >= o.speechLevel) {
       speaking = true;
@@ -168,6 +173,9 @@
   function show() {
     var c = params();
     if (c.state === 'close') return close();
+    // Prepare the card during capture startup and reveal it as soon as the stream supplies audio.
+    waitingForMic = c.waitForMic || '';
+    document.body.style.visibility = waitingForMic && waitingForMic !== readyMic ? 'hidden' : '';
     if (c.look !== 'pill' && window.AIOrb) return orbFill(c);
     if (orb) { orb.destroy(); orb = null; }
     if (c.state === 'heard') return heard(c);
@@ -176,6 +184,7 @@
   function close() {
     clearTimeout(timer);
     state = '';
+    waitingForMic = '';
     box.className = '';
     if (orb && orb.visible) {
       note.textContent = '';

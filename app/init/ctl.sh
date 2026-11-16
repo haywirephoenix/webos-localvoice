@@ -44,8 +44,8 @@ CARD=com.haywire.localvoice.card
 NAME=com.webos.service.voiceconductor
 MOUNTS=/proc/self/mountinfo
 # lifesgoodwithoutspying stubs voiceinput, which supplies the microphone, while its Voice switch is
-# on, and answers for this service's name with a stand-in. This app asks for two exceptions while it
-# is turned on: to keep voiceinput, and to claim the name from the stand-in. Each counts only once
+# on, and answers for this service's name with a stand-in. This app asks to keep the microphone
+# processes available and claim the name from the stand-in. Each exception counts only once
 # the user turns it on in lifesgoodwithoutspying's Exceptions tab and applies; until then the
 # microphone stays off. It is asked to apply after each change.
 ID=com.haywire.localvoice
@@ -180,7 +180,12 @@ lgws_apply() {
 }
 register() {
     mkdir -p "$(dirname "$LGWS_EXCEPT")"
-    printf 'keep voiceinput\nclaim %s\n' "$NAME" > "$LGWS_EXCEPT"
+    {
+        printf 'keep voiceinput\nclaim %s\n' "$NAME"
+        if [ -f /usr/share/luna-service2/services.d/com.webos.service.voiceinput.hidraw.service ]; then
+            printf 'keep voiceinput_hidraw\n'
+        fi
+    } > "$LGWS_EXCEPT"
     rm -f "$LGWS_OLD_KEEP"
 }
 # Why the microphone is off, naming lifesgoodwithoutspying's setting when that is the reason.

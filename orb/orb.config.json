@@ -3,7 +3,7 @@
   "size": 155,
   "bodyOpacity": 0.92,
   "audioResponse": 0.46,
-  "transitionMs": 420,
+  "transitionMs": 220,
   "rim": {
     "inner": 0.55,
     "fade": 0.99,
